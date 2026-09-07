@@ -7,7 +7,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
-use crate::noise::util::grid_data::{GridData, Lerp};
+use crate::noise::util::grid_data::{PVGridData, Lerp};
 use crate::noise::util::grid_helpers::{
     Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt, assume_init_slice,
     maybe_tail_load, maybe_tail_store, pad_grid_size, validate_grid_size, validate_state_size,
@@ -112,7 +112,7 @@ impl GridGenerator<3> for Perlin {
 
         let num_blocks = A::NUM_SIMD_REG / 8;
         let bilerp_config = InterpolationConfig::new(num_blocks, params.grid_size[0]);
-        let grid_data = GridData::new::<A, LERP>(&params, &mut data_arena, &padded_size);
+        let grid_data = PVGridData::new::<A, LERP>(&params, &mut data_arena, &padded_size);
         let mut trilerp_buffers = DottedTrilerpBuffers::new(&mut trilerp_arena, padded_size[0]);
         let mut gradients = PerlinGradients3D::new(&mut arena, padded_size[0]);
 
@@ -159,7 +159,7 @@ impl GridGenerator<3> for Perlin {
 #[inline(always)]
 pub(super) fn grid_gradients_3d<'a, A: Arch>(
     params: &GridNoiseParams<3>,
-    grid_data: &GridData<3>,
+    grid_data: &PVGridData<3>,
     gradients: &mut PerlinGradients3D<'a>,
     y_it: usize,
     z_it: usize,
@@ -259,7 +259,7 @@ pub(super) fn grid_gradients_3d<'a, A: Arch>(
 
 #[inline(always)]
 pub(super) fn grid_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
-    grid_data: &GridData<3>,
+    grid_data: &PVGridData<3>,
     gradients: &mut PerlinGradients3D<'a>,
 ) {
     let (grad_buffer, left, right) = if IS_FRONT {
@@ -360,7 +360,7 @@ pub(crate) struct DottedTrilerpExecuter<
 > {
     config: &'a InterpolationConfig<A>,
     fractal_config: &'a C::Config,
-    grid_data: &'a GridData<'a, 3>,
+    grid_data: &'a PVGridData<'a, 3>,
     gradients: &'a PerlinGradients3D<'a>,
     y_range: Range<usize>,
     z_range: Range<usize>,
@@ -383,7 +383,7 @@ pub(super) fn grid_dotted_trilerp<A: Arch, C: Combiner, const INIT: bool, const 
     buffers: &mut DottedTrilerpBuffers,
     config: &InterpolationConfig<A>,
     fractal_config: &C::Config,
-    grid_data: &GridData<3>,
+    grid_data: &PVGridData<3>,
     gradients: &PerlinGradients3D,
     ranges: (Range<usize>, Range<usize>),
     output: (&mut [f32], &mut [f32]),

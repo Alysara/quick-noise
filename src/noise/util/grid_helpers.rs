@@ -317,3 +317,10 @@ pub(crate) fn configure_tiling<const D: usize>(params: &GridNoiseParams<D>) -> [
         }
     })
 }
+
+#[inline(always)]
+pub(crate) fn simd_rem_euclid_i32<A: Arch>(x: Simd<i32, A>, t: i32) -> Simd<i32, A> {
+    let t_f = Simd::<f32, A>::splat(t as f32);
+    let x_f = x.cast_float();
+    (x_f - (x_f / t_f).floor() * t_f).cast_int_trunc()
+}
