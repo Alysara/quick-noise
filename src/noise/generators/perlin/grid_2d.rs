@@ -1,5 +1,4 @@
 use std::f32::consts::SQRT_2;
-use std::fmt;
 use std::mem::MaybeUninit;
 use std::ops::Range;
 
@@ -8,10 +7,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
 use crate::noise::util::grid_data::{GridData, Lerp};
-use crate::noise::util::grid_helpers::{
-    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt, assume_init_slice,
-    maybe_tail_load, maybe_tail_store, pad_grid_size, validate_grid_size, validate_state_size,
-};
+use crate::noise::util::grid_helpers::*;
 use crate::{GridGenerator, Perlin};
 
 pub const GRADIENTS_2D: [[f32; 2]; 8] = [
@@ -50,23 +46,6 @@ impl<'a> PerlinGradients2D<'a> {
     }
 }
 
-impl<'a> fmt::Debug for PerlinGradients2D<'a> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        unsafe {
-            f.debug_struct("GridData")
-                .field("tl.x", &assume_init_slice(self.tl[0]))
-                .field("tr.x", &assume_init_slice(self.tr[0]))
-                .field("bl.x", &assume_init_slice(self.bl[0]))
-                .field("br.x", &assume_init_slice(self.br[0]))
-                .field("tl.y", &assume_init_slice(self.tl[1]))
-                .field("tr.y", &assume_init_slice(self.tr[1]))
-                .field("bl.y", &assume_init_slice(self.bl[1]))
-                .field("br.y", &assume_init_slice(self.br[1]))
-                .finish()
-        }
-    }
-}
-
 const LERP: u8 = Lerp::Quintic as u8;
 #[enable_targets(A)]
 impl GridGenerator<2> for Perlin {
@@ -85,7 +64,7 @@ impl GridGenerator<2> for Perlin {
         let mut arena = Arena::with_cache(&mut cache);
 
         // SIMD Slice constants.
-        let num_blocks = A::NUM_SIMD_REG / 8;
+        let num_blocks = DottedBilerpExecuter::<A, C, INIT, FINAL>::MAX_BLOCKS;
         let bilerp_config = InterpolationConfig::<A>::new(num_blocks, params.grid_size[0]);
 
         let mut sub_arena = arena.allocate_arena(padded_size[0] * 3 + padded_size[1] * 3);
@@ -99,7 +78,7 @@ impl GridGenerator<2> for Perlin {
         let mut gradients = PerlinGradients2D::new(&mut arena, padded_size[0]);
 
         // Set the top gradients.
-        grid_gradients_2d::<A>(
+        fill_gradients_2d::<A>(
             &params,
             &mut grid_data,
             grad_scratch,
@@ -115,7 +94,7 @@ impl GridGenerator<2> for Perlin {
                 unsafe { grid_data.grid_indices[1].get_unchecked(y_it).assume_init() as usize };
 
             // Set bottom gradients.
-            grid_gradients_2d::<A>(
+            fill_gradients_2d::<A>(
                 &params,
                 &mut grid_data,
                 grad_scratch,
@@ -125,7 +104,7 @@ impl GridGenerator<2> for Perlin {
             );
 
             let y_range = y_cur_index..y_next_index;
-            grid_dotted_bilerp::<A, C, INIT, FINAL>(
+            dotted_bilerp::<A, C, INIT, FINAL>(
                 &bilerp_config,
                 &fractal_config,
                 &grid_data,
@@ -143,7 +122,7 @@ impl GridGenerator<2> for Perlin {
 }
 
 #[inline(always)]
-pub(super) fn grid_gradients_2d<'a, A: Arch>(
+pub(super) fn fill_gradients_2d<'a, A: Arch>(
     params: &GridNoiseParams<2>,
     grid_data: &mut GridData<2>,
     grad_buffer: &mut [MaybeUninit<u32>],
@@ -269,7 +248,7 @@ pub(crate) struct DottedBilerpExecuter<
 
 /// Fills the dst slice with interpolated dot products from gradients.
 #[inline(always)]
-pub(super) fn grid_dotted_bilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
+pub(super) fn dotted_bilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
     config: &InterpolationConfig<A>,
     fractal_config: &C::Config,
     grid_data: &GridData<2>,
@@ -300,95 +279,185 @@ pub(super) fn grid_dotted_bilerp<A: Arch, C: Combiner, const INIT: bool, const F
     };
 
     let (state, dst) = output;
+
     if config.has_block_head {
-        executer.interpolate::<false>(state, dst);
+        executer.interpolate::<false, 0, FULL>(state, dst);
     }
 
     if config.has_block_tail {
-        executer.interpolate::<true>(state, dst);
         std::hint::cold_path();
+        let block_tail_size = config.block_tail_size;
+        let has_partial = config.has_partial;
+        let has_block_head = config.has_block_head;
+        match DottedBilerpExecuter::<A, C, INIT, FINAL>::MAX_BLOCKS {
+            1 => match (block_tail_size, has_partial, has_block_head) {
+                (0, true, false) => executer.interpolate::<true, 0, SCALAR>(state, dst),
+                (0, true, true) => executer.interpolate::<true, 0, PARTIAL>(state, dst),
+                _ => {}
+            },
+            2 => match (block_tail_size, has_partial, has_block_head) {
+                (1, false, _) => executer.interpolate::<true, 1, FULL>(state, dst),
+                (0, true, false) => executer.interpolate::<true, 0, SCALAR>(state, dst),
+                (0, true, true) => executer.interpolate::<true, 0, PARTIAL>(state, dst),
+                (1, true, _) => executer.interpolate::<true, 1, PARTIAL>(state, dst),
+                _ => {}
+            },
+            4 => match (block_tail_size, has_partial, has_block_head) {
+                (1, false, _) => executer.interpolate::<true, 1, FULL>(state, dst),
+                (2, false, _) => executer.interpolate::<true, 2, FULL>(state, dst),
+                (3, false, _) => executer.interpolate::<true, 3, FULL>(state, dst),
+                (0, true, false) => executer.interpolate::<true, 0, SCALAR>(state, dst),
+                (0, true, true) => executer.interpolate::<true, 0, PARTIAL>(state, dst),
+                (1, true, _) => executer.interpolate::<true, 1, PARTIAL>(state, dst),
+                (2, true, _) => executer.interpolate::<true, 2, PARTIAL>(state, dst),
+                (3, true, _) => executer.interpolate::<true, 3, PARTIAL>(state, dst),
+                _ => {}
+            },
+            8 => match (block_tail_size, has_partial, has_block_head) {
+                (1, false, _) => executer.interpolate::<true, 1, FULL>(state, dst),
+                (2, false, _) => executer.interpolate::<true, 2, FULL>(state, dst),
+                (3, false, _) => executer.interpolate::<true, 3, FULL>(state, dst),
+                (4, false, _) => executer.interpolate::<true, 4, FULL>(state, dst),
+                (5, false, _) => executer.interpolate::<true, 5, FULL>(state, dst),
+                (6, false, _) => executer.interpolate::<true, 6, FULL>(state, dst),
+                (7, false, _) => executer.interpolate::<true, 7, FULL>(state, dst),
+                (0, true, false) => executer.interpolate::<true, 0, SCALAR>(state, dst),
+                (0, true, true) => executer.interpolate::<true, 0, PARTIAL>(state, dst),
+                (1, true, _) => executer.interpolate::<true, 1, PARTIAL>(state, dst),
+                (2, true, _) => executer.interpolate::<true, 2, PARTIAL>(state, dst),
+                (3, true, _) => executer.interpolate::<true, 3, PARTIAL>(state, dst),
+                (4, true, _) => executer.interpolate::<true, 4, PARTIAL>(state, dst),
+                (5, true, _) => executer.interpolate::<true, 5, PARTIAL>(state, dst),
+                (6, true, _) => executer.interpolate::<true, 6, PARTIAL>(state, dst),
+                (7, true, _) => executer.interpolate::<true, 7, PARTIAL>(state, dst),
+                _ => {}
+            },
+            _ => {}
+        }
     }
 }
 
 impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
     DottedBilerpExecuter<'a, A, C, INIT, FINAL>
 {
+    const MAX_BLOCKS: usize = A::NUM_SIMD_REG / 8;
+
     #[inline(always)]
-    pub fn interpolate<const IS_TAIL: bool>(&mut self, state: &mut [f32], dst: &mut [f32]) {
+    pub fn interpolate<const IS_TAIL: bool, const NUM_BLOCKS: usize, const ACCESS_MODE: u8>(
+        &mut self,
+        state: &mut [f32],
+        dst: &mut [f32],
+    ) {
         let range = if IS_TAIL {
             self.config.block_tail_start..self.grid_data.grid_size[0]
         } else {
             0..self.config.block_tail_start
         };
 
-        for x in range.step_by(self.config.block_lanes) {
-            self.initialize_factors::<IS_TAIL>(x);
+        let process = |this: &mut Self, state: &mut [f32], dst: &mut [f32], x, y, index| {
+            this.process_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(x, y, index, state, dst)
+        };
+
+        let mut x = range.start;
+        while x < range.end {
+            self.initialize_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(x);
 
             let mut y = self.y_range.start;
+            let y_step = self.grid_data.grid_size[0];
+            let mut idx = y * y_step;
             while y < self.y_range.end {
                 if y + 4 > self.y_range.end {
-                    self.process_factors::<IS_TAIL>(x, y, state, dst);
+                    // Slow single y iteration path.
+                    std::hint::cold_path();
+                    process(self, state, dst, x, y, idx);
                     y += 1;
+                    idx += y_step;
                 } else {
-                    self.process_factors::<IS_TAIL>(x, y, state, dst);
-                    self.process_factors::<IS_TAIL>(x, y + 1, state, dst);
-                    self.process_factors::<IS_TAIL>(x, y + 2, state, dst);
-                    self.process_factors::<IS_TAIL>(x, y + 3, state, dst);
+                    // Fast unrolled 4x y iteration path.
+                    process(self, state, dst, x, y, idx);
+                    process(self, state, dst, x, y + 1, idx + y_step);
+                    process(self, state, dst, x, y + 2, idx + 2 * y_step);
+                    process(self, state, dst, x, y + 3, idx + 3 * y_step);
                     y += 4;
+                    idx += y_step * 4;
                 }
             }
+            x += self.config.block_lanes;
         }
     }
 
     #[inline(always)]
-    fn initialize_factors<const IS_TAIL: bool>(&mut self, x: usize) {
+    fn initialize_factors<const IS_TAIL: bool, const NUM_BLOCKS: usize, const ACCESS_MODE: u8>(
+        &mut self,
+        x: usize,
+    ) {
         let num_blocks = if IS_TAIL {
-            self.config.block_tail_size
+            NUM_BLOCKS
         } else {
-            self.config.num_blocks
+            Self::MAX_BLOCKS
         };
 
         // These blocked loops will get entirely unrolled by the compiler.
         for block in 0..num_blocks {
             // Load gradients into registers.
             let index = x + Simd::<f32, A>::LANES * block;
+            self.initialize_factors_block::<FULL>(index, block);
+        }
 
-            let x_lerp = unsafe { self.grid_data.fade_factors[0].load_simd_aligned(index) };
-            let x_tl = unsafe { self.gradients.tl[0].load_simd_aligned(index) };
-            let x_tr = unsafe { self.gradients.tr[0].load_simd_aligned(index) };
-            let x_bl = unsafe { self.gradients.bl[0].load_simd_aligned(index) };
-            let x_br = unsafe { self.gradients.br[0].load_simd_aligned(index) };
-            let y_tl = unsafe { self.gradients.tl[1].load_simd_aligned(index) };
-            let y_tr = unsafe { self.gradients.tr[1].load_simd_aligned(index) };
-            let y_bl = unsafe { self.gradients.bl[1].load_simd_aligned(index) };
-            let y_br = unsafe { self.gradients.br[1].load_simd_aligned(index) };
-
-            // Compute base dot products.
-            let prod_sum_tl = y_tl.mul_add(self.y_upper_increment, x_tl);
-            let prod_sum_tr = y_tr.mul_add(self.y_upper_increment, x_tr);
-            let prod_sum_bl = y_bl.mul_add(self.y_lower_increment, x_bl);
-            let prod_sum_br = y_br.mul_add(self.y_lower_increment, x_br);
-
-            // Base interpolation.
-            let prod_sum_top_dif = prod_sum_tr - prod_sum_tl;
-            let prod_sum_low_dif = prod_sum_br - prod_sum_bl;
-            self.top[block] = x_lerp.mul_add(prod_sum_top_dif, prod_sum_tl) * self.weight_vec;
-            let base_lerp_bottom = x_lerp.mul_add(prod_sum_low_dif, prod_sum_bl) * self.weight_vec;
-            self.dif[block] = base_lerp_bottom - self.top[block];
-
-            // Offset interpolation.
-            self.d_top[block] = x_lerp.mul_add(y_tr - y_tl, y_tl) * self.y_weighted_increment;
-            let y_offset_lerp_bottom =
-                x_lerp.mul_add(y_br - y_bl, y_bl) * self.y_weighted_increment;
-            self.d_dif[block] = y_offset_lerp_bottom - self.d_top[block];
+        if ACCESS_MODE != FULL {
+            self.initialize_factors_block::<ACCESS_MODE>(0, NUM_BLOCKS);
         }
     }
 
     #[inline(always)]
-    fn process_factors<const IS_TAIL: bool>(
+    fn initialize_factors_block<const ACCESS_MODE: u8>(&mut self, index: usize, block: usize) {
+        let (x_lerp, x_tl, x_tr, x_bl, x_br, y_tl, y_tr, y_bl, y_br) = unsafe {
+            (
+                self.grid_data.fade_factors[0].ld_buf::<ACCESS_MODE>(index, self.config),
+                self.gradients.tl[0].ld_buf::<ACCESS_MODE>(index, self.config),
+                self.gradients.tr[0].ld_buf::<ACCESS_MODE>(index, self.config),
+                self.gradients.bl[0].ld_buf::<ACCESS_MODE>(index, self.config),
+                self.gradients.br[0].ld_buf::<ACCESS_MODE>(index, self.config),
+                self.gradients.tl[1].ld_buf::<ACCESS_MODE>(index, self.config),
+                self.gradients.tr[1].ld_buf::<ACCESS_MODE>(index, self.config),
+                self.gradients.bl[1].ld_buf::<ACCESS_MODE>(index, self.config),
+                self.gradients.br[1].ld_buf::<ACCESS_MODE>(index, self.config),
+            )
+        };
+
+        // Compute base dot products.
+        let prod_sum_tl = y_tl.mul_add(self.y_upper_increment, x_tl);
+        let prod_sum_tr = y_tr.mul_add(self.y_upper_increment, x_tr);
+        let prod_sum_bl = y_bl.mul_add(self.y_lower_increment, x_bl);
+        let prod_sum_br = y_br.mul_add(self.y_lower_increment, x_br);
+
+        // Base interpolation.
+        let prod_sum_top_dif = prod_sum_tr - prod_sum_tl;
+        let prod_sum_low_dif = prod_sum_br - prod_sum_bl;
+
+        unsafe {
+            *self.top.as_mut().get_unchecked_mut(block) =
+                x_lerp.mul_add(prod_sum_top_dif, prod_sum_tl) * self.weight_vec;
+            let base_lerp_bottom = x_lerp.mul_add(prod_sum_low_dif, prod_sum_bl) * self.weight_vec;
+            *self.dif.as_mut().get_unchecked_mut(block) =
+                base_lerp_bottom - *self.top.as_ref().get_unchecked(block);
+
+            // Offset interpolation.
+            *self.d_top.as_mut().get_unchecked_mut(block) =
+                x_lerp.mul_add(y_tr - y_tl, y_tl) * self.y_weighted_increment;
+            let y_offset_lerp_bottom =
+                x_lerp.mul_add(y_br - y_bl, y_bl) * self.y_weighted_increment;
+            *self.d_dif.as_mut().get_unchecked_mut(block) =
+                y_offset_lerp_bottom - *self.d_top.as_ref().get_unchecked(block);
+        }
+    }
+
+    #[inline(always)]
+    fn process_factors<const IS_TAIL: bool, const NUM_BLOCKS: usize, const ACCESS_MODE: u8>(
         &mut self,
         x: usize,
         y: usize,
+        index: usize,
         state: &mut [f32],
         dst: &mut [f32],
     ) {
@@ -398,50 +467,81 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
                 .assume_init()
         });
 
-        let range = if IS_TAIL {
-            0..self.config.block_tail_size
+        let num_blocks = if IS_TAIL {
+            NUM_BLOCKS
         } else {
-            0..self.config.num_blocks
+            Self::MAX_BLOCKS
         };
 
-        let index = y * self.grid_data.grid_size[0] + x;
-        let tail_end = index + self.config.tail_size;
-        for block in range {
-            let index = index + block * Simd::<f32, A>::LANES;
-            let output = y_lerp.mul_add(self.dif[block], self.top[block]);
+        for block in 0..num_blocks {
+            let index = index + x + block * Simd::<f32, A>::LANES;
 
-            let (cur_state, mut result) = if INIT {
-                C::initialize_sample(self.fractal_config, output)
-            } else {
-                let mut cur_state = C::State::<A>::default();
-                for i in 0..C::State::<A>::STATE_SIZE {
-                    let offset = i * self.grid_data.total_size;
-                    let index = index + offset;
-                    let tail_end = tail_end + offset;
-                    cur_state[i] = unsafe { maybe_tail_load::<A, IS_TAIL>(index..tail_end, state) };
-                }
-                let cur_result = unsafe { maybe_tail_load::<A, IS_TAIL>(index..tail_end, dst) };
-                C::apply_sample(self.fractal_config, cur_state, cur_result, output)
-            };
+            self.process_factors_block::<FULL>(
+                block, y_lerp, index, state, dst,
+            );
+        }
 
-            // Save changes to state.
-            if !FINAL {
-                for i in 0..C::State::<A>::STATE_SIZE {
-                    let offset = i * self.grid_data.total_size;
-                    let index = index + offset;
-                    let tail_end = tail_end + offset;
-                    unsafe { maybe_tail_store::<A, IS_TAIL>(index..tail_end, cur_state[i], state) };
-                }
+        if ACCESS_MODE != FULL {
+            self.process_factors_block::<ACCESS_MODE>(NUM_BLOCKS, y_lerp, index, state, dst);
+        }
+    }
+
+    #[inline(always)]
+    fn process_factors_block<const ACCESS_MODE: u8>(
+        &mut self,
+        block: usize,
+        y_lerp: Simd<f32, A>,
+        index: usize,
+        state: &mut [f32],
+        dst: &mut [f32],
+    ) {
+        let access_mode = SimdAccessMode::from_u8(ACCESS_MODE);
+        let output = unsafe {
+            y_lerp.mul_add(
+                *self.dif.as_ref().get_unchecked(block),
+                *self.top.as_ref().get_unchecked(block),
+            )
+        };
+
+        // Initialize sample if it is the first and apply combiner algorithm
+        // for subsequent samples.
+        let (cur_state, mut result) = if INIT {
+            C::initialize_sample(self.fractal_config, output)
+        } else {
+            let mut cur_state = C::State::<A>::default();
+            for i in 0..C::State::<A>::STATE_SIZE {
+                let offset = i * self.grid_data.total_size;
+                let index = index + offset;
+                cur_state[i] = unsafe { load_simd_rw(state, index, self.config, access_mode) };
             }
 
-            if FINAL {
-                result = C::finalize_sample(self.fractal_config, cur_state, result);
+            let cur_result = unsafe { load_simd_rw(dst, index, self.config, access_mode) };
+            C::apply_sample(self.fractal_config, cur_state, cur_result, output)
+        };
+
+        // Save changes to state.
+        if !FINAL {
+            for i in 0..C::State::<A>::STATE_SIZE {
+                let offset = i * self.grid_data.total_size;
+                let index = index + offset;
+                unsafe { write_simd_rw(state, index, cur_state[i], self.config, access_mode) };
             }
+        }
 
-            unsafe { maybe_tail_store::<A, IS_TAIL>(index..tail_end, result, dst) };
+        // Finalize result if it is the last one.
+        if FINAL {
+            result = C::finalize_sample(self.fractal_config, cur_state, result);
+        }
 
-            self.dif[block] += self.d_dif[block];
-            self.top[block] += self.d_top[block];
+        // Save the result.
+        unsafe { write_simd_rw(dst, index, result, self.config, access_mode) };
+
+        // Walk along the grid by accumulating interpolation components.
+        unsafe {
+            *self.dif.as_mut().get_unchecked_mut(block) +=
+                *self.d_dif.as_ref().get_unchecked(block);
+            *self.top.as_mut().get_unchecked_mut(block) +=
+                *self.d_top.as_ref().get_unchecked(block);
         }
     }
 }

@@ -34,13 +34,13 @@ impl Random {
         data1
     }
 
-    pub fn mix_u32(mut data: u32) -> u32 {
-        data ^= 0x7A019853;
-        data ^= data >> 16;
-        data = data.wrapping_mul(0x85ebca6b);
-        data ^= data >> 13;
-        data = data.wrapping_mul(0xc2b2ae35);
-        data ^= data >> 16;
-        data
-    }
+    // pub fn mix_u32(mut data: u32) -> u32 {
+    //     data ^= 0x7A019853;
+    //     data ^= data >> 16;
+    //     data = data.wrapping_mul(0x85ebca6b);
+    //     data ^= data >> 13;
+    //     data = data.wrapping_mul(0xc2b2ae35);
+    //     data ^= data >> 16;
+    //     data
+    // }
 }

@@ -27,7 +27,7 @@ strip = false
 
 [dependencies]
 itertools = "0.14.0"
-simply-simd = { git = "https://github.com/Alysara/simply-simd", rev = "61ea434b97b75ec6601fa3591029046add497655" }
+simply-simd = { git = "https://github.com/Alysara/simply-simd" }
 image = { version = "0.25.9", default-features = false, features = ["png"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_arrays = { version = "0.2", optional = true }
@@ -41,6 +41,10 @@ serde = ["dep:serde", "dep:serde_arrays"]
 
 [[example]]
 name = "basic"
+required-features = ["image"]
+
+[[example]]
+name = "debug"
 required-features = ["image"]
 
 [[example]]

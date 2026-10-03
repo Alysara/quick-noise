@@ -2,6 +2,17 @@ All changes in `quick-noise` are documented here.
 
 ## Unreleased
 
+## 0.3.0 - In development
+
+### Added
+- Generator for 2D Cellular grid noise.
+
+### Changed
+- Performance improvements to Value and Perlin grid noise.
+
+### Fixed
+- Incorrect cellular noise result for scalar fallback.
+
 ## 0.2.0 - 2026-07-25
 
 ### Added

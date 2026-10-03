@@ -52,6 +52,24 @@ fn create_test_images_grid_2d() {
         .into_iter()
         .to_grayscale_image(4, 3, "test_images/tiny_grid_2d_3_value.png");
 
+    tiny_grid_2d_1
+        .builder::<Fbm, Cellular>()
+        .octaves(6)
+        .into_iter()
+        .to_grayscale_image(1, 1, "test_images/tiny_grid_2d_1_cellular.png");
+
+    tiny_grid_2d_2
+        .builder::<Fbm, Cellular>()
+        .octaves(6)
+        .into_iter()
+        .to_grayscale_image(7, 7, "test_images/tiny_grid_2d_2_cellular.png");
+
+    tiny_grid_2d_3
+        .builder::<Fbm, Cellular>()
+        .octaves(6)
+        .into_iter()
+        .to_grayscale_image(4, 3, "test_images/tiny_grid_2d_3_cellular.png");
+
     BatchNoise::<2, Fbm, Perlin>::builder(tiny_grid_2d_2.x_iter(), tiny_grid_2d_2.y_iter())
         .octaves(6)
         .into_iter()
