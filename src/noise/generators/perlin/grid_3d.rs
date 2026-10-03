@@ -633,36 +633,6 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             // Load gradients into registers.
             let index = x + Simd::<f32, A>::LANES * block;
             self.initialize_factors_block::<FULL>(buffers, index, block, z_vec, z_lerp);
-
-            // let z_tf_offset = buffers.z_tf_offset.load_simd_aligned(index);
-            // let z_bf_offset = buffers.z_bf_offset.load_simd_aligned(index);
-            // let z_top_offset_dif = buffers.z_top_offset_dif.load_simd_aligned(index);
-            // let z_bottom_offset_dif = buffers.z_bottom_offset_dif.load_simd_aligned(index);
-            //
-            // let y_tf_offset = buffers.y_tf_offset.load_simd_aligned(index);
-            // let y_bf_offset = buffers.y_bf_offset.load_simd_aligned(index);
-            // let y_top_offset_dif = buffers.y_top_offset_dif.load_simd_aligned(index);
-            // let y_bottom_offset_dif = buffers.y_bottom_offset_dif.load_simd_aligned(index);
-            //
-            // let tf_base_vec = buffers.tf_base.load_simd_aligned(index);
-            // let bf_base_vec = buffers.bf_base.load_simd_aligned(index);
-            // let top_base_dif_vec = buffers.top_base_dif.load_simd_aligned(index);
-            // let bottom_base_dif_vec = buffers.bottom_base_dif.load_simd_aligned(index);
-            //
-            // let z_top_offset = z_lerp.mul_add(z_top_offset_dif, z_tf_offset);
-            // let z_bottom_offset = z_lerp.mul_add(z_bottom_offset_dif, z_bf_offset);
-            //
-            // self.top[block] =
-            //     z_vec.mul_add(z_top_offset, z_lerp.mul_add(top_base_dif_vec, tf_base_vec));
-            // let bottom_base = z_vec.mul_add(
-            //     z_bottom_offset,
-            //     z_lerp.mul_add(bottom_base_dif_vec, bf_base_vec),
-            // );
-            // self.dif[block] = bottom_base - self.top[block];
-            //
-            // self.d_top[block] = z_lerp.mul_add(y_top_offset_dif, y_tf_offset);
-            // let y_bottom_offset = z_lerp.mul_add(y_bottom_offset_dif, y_bf_offset);
-            // self.d_dif[block] = y_bottom_offset - self.d_top[block];
         }
 
         if ACCESS_MODE != FULL {
@@ -751,39 +721,6 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             let index = index + x + block * Simd::<f32, A>::LANES;
 
             self.process_factors_block::<FULL>(block, y_lerp, index, state, dst);
-
-            // let output = y_lerp.mul_add(self.dif[block], self.top[block]);
-            //
-            // let (cur_state, mut result) = if INIT {
-            //     C::initialize_sample(self.fractal_config, output)
-            // } else {
-            //     let mut cur_state = C::State::<A>::default();
-            //     for i in 0..C::State::<A>::STATE_SIZE {
-            //         let index = index + i * self.grid_data.total_size;
-            //         cur_state[i] = unsafe { maybe_tail_load::<A, IS_TAIL>(index..tail_end, state) };
-            //     }
-            //     let cur_result = unsafe { maybe_tail_load::<A, IS_TAIL>(index..tail_end, dst) };
-            //     C::apply_sample(self.fractal_config, cur_state, cur_result, output)
-            // };
-            //
-            // // Save changes to state.
-            // if !FINAL {
-            //     for i in 0..C::State::<A>::STATE_SIZE {
-            //         let offset = i * self.grid_data.total_size;
-            //         let index = index + offset;
-            //         let tail_end = tail_end + offset;
-            //         unsafe { maybe_tail_store::<A, IS_TAIL>(index..tail_end, cur_state[i], state) };
-            //     }
-            // }
-            //
-            // if FINAL {
-            //     result = C::finalize_sample(self.fractal_config, cur_state, result);
-            // }
-            //
-            // unsafe { maybe_tail_store::<A, IS_TAIL>(index..tail_end, result, dst) };
-            //
-            // self.dif[block] += self.dif_step[block];
-            // self.top[block] += self.top_step[block];
         }
 
         if ACCESS_MODE != FULL {
