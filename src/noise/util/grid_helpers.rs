@@ -8,7 +8,7 @@ use simply_simd::{Arch, Mask, Simd, SimdElement, SimdToArray};
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
 
-const STACK_SIZE: usize = 8192;
+const STACK_SIZE: usize = 4096;
 pub struct ArenaBuffer<F: Arch> {
     heap: Vec<f32>,
     stack: [MaybeUninit<f32>; STACK_SIZE],
