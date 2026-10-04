@@ -9,6 +9,18 @@ use crate::simd::{Arch, Simd, enable_targets};
 const MAX_FBM_OCTAVES: usize = 32;
 
 impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
+    /// Samples a batch of noise using arbitrary inputs from simd iterators.
+    /// Returns a new iterator with the noise result without intermediate stores.
+    /// Using the builders instead is recommended for ease-of-use. 
+    ///
+    /// # Type Parameters:
+    /// - `A`: The simd feature set to use.
+    /// - `I`: The type of the simd iterator tuple input.
+    /// 
+    /// # Parameters:
+    /// - `noise_config`: The parameters of the noise being generated.
+    /// - `combiner_config`: Additional parameters for the combiner algorithm.
+    /// - `iters`: A tuple containing input simd iterators for each dimension.
     #[inline(always)]
     pub fn sample<A: Arch, I: DimIter<A, D>>(
         noise_config: NoiseConfig<D>,

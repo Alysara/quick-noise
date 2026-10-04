@@ -6,6 +6,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
+use crate::noise::util::constants::{BYTE_SHUFFLE, HASH_PRIME};
 use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::*;
 use crate::{GridGenerator, Perlin};
@@ -163,15 +164,9 @@ pub(super) fn fill_gradients_3d<'a, A: Arch>(
     let y_rem = grid_data.octave_tiling[1].map_or(y_start, |t| y_start.rem_euclid(t as i32));
     let y_vec = Simd::splat((y_rem as u32).wrapping_mul(params.seed));
 
-    const BYTE_SHUFFLE: [u8; 64] = [
-        3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9,
-        15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6,
-        5, 11, 8, 10, 9, 15, 12, 14, 13,
-    ];
-
     let shuffle_indices = Simd::<u8, A>::from_slice(&BYTE_SHUFFLE[..]);
+    let prime = Simd::splat(HASH_PRIME);
 
-    let prime = Simd::splat(0x85ebca6b_u32);
     let z_shuf: [_; 2] = from_fn(|i| z_vec[i].permute_8(shuffle_indices) ^ prime);
     let y_shuf = y_vec.permute_8(shuffle_indices) ^ prime;
     let zy_mix: [_; 2] = from_fn(|i| z_shuf[i] * y_shuf);
@@ -679,20 +674,18 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         let z_bottom_offset = z_lerp.mul_add(z_bottom_offset_dif, z_bf_offset);
 
         unsafe {
-            *self.top.as_mut().get_unchecked_mut(block) =
+            *self.top.get_unchecked_mut(block) =
                 z_vec.mul_add(z_top_offset, z_lerp.mul_add(top_base_dif_vec, tf_base_vec));
             let bottom_base = z_vec.mul_add(
                 z_bottom_offset,
                 z_lerp.mul_add(bottom_base_dif_vec, bf_base_vec),
             );
-            *self.dif.as_mut().get_unchecked_mut(block) =
-                bottom_base - *self.top.as_ref().get_unchecked(block);
+            *self.dif.get_unchecked_mut(block) = bottom_base - *self.top.get_unchecked(block);
 
-            *self.top_step.as_mut().get_unchecked_mut(block) =
-                z_lerp.mul_add(y_top_offset_dif, y_tf_offset);
+            *self.top_step.get_unchecked_mut(block) = z_lerp.mul_add(y_top_offset_dif, y_tf_offset);
             let y_bottom_offset = z_lerp.mul_add(y_bottom_offset_dif, y_bf_offset);
-            *self.dif_step.as_mut().get_unchecked_mut(block) =
-                y_bottom_offset - *self.top_step.as_ref().get_unchecked(block);
+            *self.dif_step.get_unchecked_mut(block) =
+                y_bottom_offset - *self.top_step.get_unchecked(block);
         }
     }
 
@@ -740,8 +733,8 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         let access_mode = SimdAccessMode::from_u8(ACCESS_MODE);
         let output = unsafe {
             y_lerp.mul_add(
-                *self.dif.as_ref().get_unchecked(block),
-                *self.top.as_ref().get_unchecked(block),
+                *self.dif.get_unchecked(block),
+                *self.top.get_unchecked(block),
             )
         };
 
@@ -780,10 +773,8 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
 
         // Walk along the grid by accumulating interpolation components.
         unsafe {
-            *self.dif.as_mut().get_unchecked_mut(block) +=
-                *self.dif_step.as_ref().get_unchecked(block);
-            *self.top.as_mut().get_unchecked_mut(block) +=
-                *self.top_step.as_ref().get_unchecked(block);
+            *self.dif.get_unchecked_mut(block) += *self.dif_step.get_unchecked(block);
+            *self.top.get_unchecked_mut(block) += *self.top_step.get_unchecked(block);
         }
     }
 }

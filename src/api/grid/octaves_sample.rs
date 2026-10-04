@@ -15,6 +15,19 @@ fn get_max<const D: usize>(array: [f32; D]) -> f32 {
 
 #[enable_targets(A)]
 impl<const D: usize, C: Combiner, G: GridGenerator<D>> GridNoise<D, C, G> {
+
+    /// Samples a uniform grid of noise using config structs and custom octaves.
+    /// Using the builders instead is recommended for ease-of-use. 
+    ///
+    /// # Type Parameters:
+    /// - `A`: The simd feature set to use.
+    /// 
+    /// # Parameters:
+    /// - `grid_config`: The parameters of the grid being sampled.
+    /// - `noise_config`: The parameters of the noise being generated.
+    /// - `combiner_config`: Additional parameters for the combiner algorithm.
+    /// - `octave_list`: List of octaves to create noise with.
+    /// - `dst`: Slice to write the output noise results.
     pub fn sample_with_octaves<A: Arch>(
         grid_config: &GridConfig<D>,
         noise_config: &NoiseConfig<D>,

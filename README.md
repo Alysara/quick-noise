@@ -11,12 +11,12 @@ Blazingly fast SIMD procedural noise library for batch and uniform grid sampling
 
 ### 2D Noise
 Time taken to produce 3 octaves of FBM noise for 1024x1024 (1,048,576) samples.
-| Library              | Perlin  | Value   | Simplex | Cellular |
+| Library              | Perlin  |  Value  | Simplex | Cellular |
 |----------------------|---------|---------|---------|----------|
-| quick-noise (grid)   | 0.50 ms | 0.38 ms |    X    | 0.85 ms  |
+| quick-noise (grid)   | 0.79 ms | 0.66 ms |    X    | 0.85 ms  |
 | quick-noise (batch)  | 3.76 ms | 3.32 ms | 4.89 ms | 6.01 ms  |
 | fastnoise2           | 4.51 ms | 3.73 ms | 5.09 ms | 16.2 ms  |
-| simd-noise           | 7.86 ms |    X    |    X    | 11.3 ms  |
+| simd-noise           |    X    |    X    | 7.86 ms | 11.3 ms  |
 | noise-rs             | 26.4 ms | 24.2 ms | 42.4 ms | 86.0 ms  |
 | noiz                 | 25.8 ms | 20.6 ms | 35.2 ms | 74.0 ms  |
 | libnoise             | 27.2 ms | 22.9 ms | 50.7 ms | 126 ms   |
@@ -24,12 +24,12 @@ Time taken to produce 3 octaves of FBM noise for 1024x1024 (1,048,576) samples.
 
 ### 3D Noise
 Time taken to produce 3 octaves of FBM noise for 128x128x128 (2,097,152) samples.
-| Library              | Perlin  | Value   | Simplex | Cellular |
+| Library              | Perlin  |  Value  | Simplex | Cellular |
 |----------------------|---------|---------|---------|----------|
-| quick-noise (grid)   | 0.71 ms | 0.48 ms |    X    |    X     |
+| quick-noise (grid)   | 1.05 ms | 0.81 ms |    X    |    X     |
 | quick-noise (batch)  | 21.6 ms | 11.2 ms | 20.4 ms | 34.6 ms  |
 | fastnoise2           | 23.3 ms | 11.8 ms | 20.0 ms | 137 ms   |
-| simd-noise           | 22.0 ms |    X    |    X    | 78.0 ms  |
+| simd-noise           |    X    |    X    | 22.0 ms | 78.0 ms  |
 | noise-rs             | 82.7 ms | 160 ms  | 153 ms  | 328 ms   |
 | noiz                 | 104 ms  | 83.8 ms | 132 ms  | 390 ms   |
 | libnoise             | 102 ms  | 73.1 ms | 155 ms  | 406 ms   |
@@ -44,14 +44,12 @@ More detailed benchmarks below.
 Without this flag, runtime feature detection (dynamic dispatch) is needed to achieve similar performance. See below
 for guidance on runtime feature detection.
 
-
 # Usage
 
-quick-noise offers two public facing interfaces. The first is grid noise.
-The performance of grid noise is often magnitudes higher than the second interface,
-batch noise, and the recommended path for high-performance procedural generation.
-Grid noise samples a squared (2D) or cubed (3D) region uniformly while batch noise 
-samples points at arbitrary inputs.
+quick-noise offers two public facing interfaces. Grid noise samples a squared (2D)
+or cubed (3D) region uniformly while batch noise samples points at arbitrary inputs.
+The performance of grid noise is often magnitudes higher than batch noise, and the
+recommended path for high-performance procedural generation.
 
 ## Builders
 

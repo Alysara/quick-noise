@@ -2,6 +2,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Cellular;
+use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 
 #[enable_targets(A)]
 impl BatchGenerator<2> for Cellular {
@@ -14,19 +15,13 @@ impl BatchGenerator<2> for Cellular {
         let three_halves: Simd<f32, A> = Simd::splat(1.5);
         let one: Simd<f32, A> = Simd::splat(1.0);
 
-        let hash_mask: Simd<u32, A> = Simd::splat(0x007FFFFF);
-        let exp_bits: Simd<u32, A> = Simd::splat(0x3F800000);
+        let hash_mask: Simd<u32, A> = Simd::splat(HASH_MASK);
+        let exp_bits: Simd<u32, A> = Simd::splat(CELLULAR_EXP_MASK);
 
         // Hash constants.
-        const BYTE_SHUFFLE: [u8; 64] = [
-            3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8,
-            10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2,
-            1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13,
-        ];
-
         let shuffle_indices = Simd::<u8, A>::from_slice(&BYTE_SHUFFLE[..]);
         let channel_seed = Simd::splat(seed);
-        let prime = Simd::splat(0x85ebca6b_u32);
+        let prime = Simd::splat(HASH_PRIME);
 
         // Scale: 2
         let x_scaled = input[0] * freq[0];
@@ -157,7 +152,6 @@ impl BatchGenerator<2> for Cellular {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::configs::NoiseConfig;
     use crate::api::seed::gen_octave_seed;
     use crate::math::random::Random;
     use crate::noise::generators::cellular::grid_2d::{hash_cell, split_hash};
@@ -191,12 +185,8 @@ mod tests {
         let lanes = Simd::<f32, StaticArch>::LANES;
 
         // Same sample coordinates as the grid: `position + index` scaled by freq.
-        let xs: Vec<f32> = (0..w * h)
-            .map(|i| pos.0 as f32 + (i % w) as f32)
-            .collect();
-        let ys: Vec<f32> = (0..w * h)
-            .map(|i| pos.1 as f32 + (i / w) as f32)
-            .collect();
+        let xs: Vec<f32> = (0..w * h).map(|i| pos.0 as f32 + (i % w) as f32).collect();
+        let ys: Vec<f32> = (0..w * h).map(|i| pos.1 as f32 + (i / w) as f32).collect();
 
         let mut max_diff = 0.0f32;
         for (block, (x_block, y_block)) in xs
@@ -210,15 +200,15 @@ mod tests {
             ];
             let freq_simd = [Simd::<f32, StaticArch>::splat(freq); 2];
 
-            let actual = Cellular::sample_batch::<StaticArch>(octave_seed, input, freq_simd)
-                .to_array();
+            let actual =
+                Cellular::sample_batch::<StaticArch>(octave_seed, input, freq_simd).to_array();
 
-            for lane in 0..lanes {
+            for (lane, actual) in actual.iter().enumerate().take(lanes) {
                 let i = block * lanes + lane;
                 let px = xs[i] * freq;
                 let py = ys[i] * freq;
                 let reference = reference_cellular(octave_seed, px, py);
-                max_diff = max_diff.max((actual[lane] - reference).abs());
+                max_diff = max_diff.max((actual - reference).abs());
             }
         }
         max_diff

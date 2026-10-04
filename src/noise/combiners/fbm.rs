@@ -2,8 +2,10 @@ use simply_simd::{Arch, Simd};
 
 use crate::{Combiner, CombinerArray};
 
+/// Combines noise by adding subsequent octaves together.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct Fbm {}
+
 impl Combiner for Fbm {
     const WEIGHT_DECAY: bool = true;
     type State<A: Arch> = CombinerArray<A, 0>;

@@ -9,16 +9,16 @@ use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
 
 const STACK_SIZE: usize = 4096;
-pub struct ArenaBuffer<F: Arch> {
+pub struct ArenaBuffer<A: Arch> {
     heap: Vec<f32>,
     stack: [MaybeUninit<f32>; STACK_SIZE],
-    _family: PhantomData<F>,
+    _family: PhantomData<A>,
 }
 
-impl<F: Arch> ArenaBuffer<F> {
+impl<A: Arch> ArenaBuffer<A> {
     #[inline(always)]
     pub fn with_capacity(capacity: usize) -> Self {
-        let capacity = capacity + Simd::<f32, F>::LANES; // Add LANES for alignment padding.
+        let capacity = capacity + Simd::<f32, A>::LANES; // Add LANES for alignment padding.
         let heap = if capacity > STACK_SIZE {
             Vec::with_capacity(capacity)
         } else {
@@ -30,7 +30,7 @@ impl<F: Arch> ArenaBuffer<F> {
         Self {
             heap,
             stack,
-            _family: PhantomData::<F>,
+            _family: PhantomData::<A>,
         }
     }
 
@@ -42,7 +42,7 @@ impl<F: Arch> ArenaBuffer<F> {
             self.stack.as_mut_slice()
         };
 
-        let offset = slice.as_ptr().align_offset(F::SIMD_WIDTH);
+        let offset = slice.as_ptr().align_offset(A::SIMD_WIDTH);
         unsafe { slice.get_unchecked_mut(offset..) }
     }
 }
@@ -53,7 +53,7 @@ pub struct Arena<'a> {
 
 impl<'a> Arena<'a> {
     #[inline(always)]
-    pub fn with_cache<F: Arch>(cache: &'a mut ArenaBuffer<F>) -> Self {
+    pub fn with_cache<A: Arch>(cache: &'a mut ArenaBuffer<A>) -> Self {
         let slice = cache.as_mut_slice();
         Self { slice }
     }
@@ -94,9 +94,9 @@ pub struct InterpolationConfig<A: Arch> {
     pub _family: PhantomData<A>,
 }
 
-impl<F: Arch> InterpolationConfig<F> {
+impl<A: Arch> InterpolationConfig<A> {
     pub fn new(num_blocks: usize, x_dim: usize) -> Self {
-        let lanes: usize = Simd::<f32, F>::LANES;
+        let lanes: usize = Simd::<f32, A>::LANES;
         let block_lanes: usize = num_blocks * lanes;
         Self {
             block_lanes,
@@ -108,7 +108,7 @@ impl<F: Arch> InterpolationConfig<F> {
             partial_mask: Mask::first_n_false(lanes as u32 - (x_dim % lanes) as u32),
             partial_start: x_dim.saturating_sub(lanes),
             partial_size: x_dim % lanes,
-            _family: PhantomData::<F>,
+            _family: PhantomData::<A>,
         }
     }
 }
@@ -154,26 +154,26 @@ pub(crate) unsafe fn maybe_tail_store<A: Arch, const IS_TAIL: bool>(
     }
 }
 
-pub trait MaybeUninitSliceSimdExt<T: SimdElement, F: Arch> {
+pub trait MaybeUninitSliceSimdExt<T: SimdElement, A: Arch> {
     /// # Safety
     /// - The range `index..index + ArchSimd::<T>::LANES` must be in bounds.
     /// - Data in range `index..index + ArchSimd::<T>::LANES` must be initialized.
-    unsafe fn load_simd(&self, index: usize) -> Simd<T, F>;
+    unsafe fn load_simd(&self, index: usize) -> Simd<T, A>;
 
     /// # Safety
     /// - The range `index..index + ArchSimd::<T>::LANES` must be in bounds.
     /// - Data in range `index..index + ArchSimd::<T>::LANES` must be initialized.
     /// - `index` must be aligned according to `SIMD_WIDTH`.
-    unsafe fn load_simd_aligned(&self, index: usize) -> Simd<T, F>;
+    unsafe fn load_simd_aligned(&self, index: usize) -> Simd<T, A>;
 
     /// # Safety
     /// - The range `index..index + ArchSimd::<T>::LANES` must be in bounds.
-    unsafe fn write_simd(&mut self, index: usize, simd: Simd<T, F>);
+    unsafe fn write_simd(&mut self, index: usize, simd: Simd<T, A>);
 
     /// # Safety
     /// - The range `index..index + ArchSimd::<T>::LANES` must be in bounds.
     /// - `index` must be aligned according to `SIMD_WIDTH`.
-    unsafe fn write_simd_aligned(&mut self, index: usize, simd: Simd<T, F>);
+    unsafe fn write_simd_aligned(&mut self, index: usize, simd: Simd<T, A>);
 
     /// Loads from padded buffers starting from `index`, except in the access mode
     /// case of partial, where it instead loads starting from config's partial_start.
@@ -186,24 +186,24 @@ pub trait MaybeUninitSliceSimdExt<T: SimdElement, F: Arch> {
     unsafe fn ld_buf<const ACCESS_MODE: u8>(
         &self,
         index: usize,
-        config: &InterpolationConfig<F>,
-    ) -> Simd<T, F>;
+        config: &InterpolationConfig<A>,
+    ) -> Simd<T, A>;
 }
 
-impl<T: SimdElement, F: Arch> MaybeUninitSliceSimdExt<T, F> for [MaybeUninit<T>] {
-    unsafe fn load_simd(&self, index: usize) -> Simd<T, F> {
+impl<T: SimdElement, A: Arch> MaybeUninitSliceSimdExt<T, A> for [MaybeUninit<T>] {
+    unsafe fn load_simd(&self, index: usize) -> Simd<T, A> {
         unsafe { Simd::from_slice_unchecked(self.get_unchecked(index..).assume_init_ref()) }
     }
 
-    unsafe fn load_simd_aligned(&self, index: usize) -> Simd<T, F> {
+    unsafe fn load_simd_aligned(&self, index: usize) -> Simd<T, A> {
         unsafe { Simd::from_aligned_slice_unchecked(self.get_unchecked(index..).assume_init_ref()) }
     }
 
-    unsafe fn write_simd(&mut self, index: usize, simd: Simd<T, F>) {
+    unsafe fn write_simd(&mut self, index: usize, simd: Simd<T, A>) {
         unsafe { simd.copy_to_slice_unchecked(self.get_unchecked_mut(index..).assume_init_mut()) }
     }
 
-    unsafe fn write_simd_aligned(&mut self, index: usize, simd: Simd<T, F>) {
+    unsafe fn write_simd_aligned(&mut self, index: usize, simd: Simd<T, A>) {
         unsafe {
             simd.copy_to_aligned_slice_unchecked(self.get_unchecked_mut(index..).assume_init_mut())
         }
@@ -213,8 +213,8 @@ impl<T: SimdElement, F: Arch> MaybeUninitSliceSimdExt<T, F> for [MaybeUninit<T>]
     unsafe fn ld_buf<const ACCESS_MODE: u8>(
         &self,
         index: usize,
-        config: &InterpolationConfig<F>,
-    ) -> Simd<T, F> {
+        config: &InterpolationConfig<A>,
+    ) -> Simd<T, A> {
         unsafe {
             match SimdAccessMode::from_u8(ACCESS_MODE) {
                 SimdAccessMode::Partial => self.load_simd(config.partial_start),
@@ -235,25 +235,25 @@ pub fn validate_grid_size<const D: usize>(grid_size: [usize; D], slice_len: usiz
 }
 
 #[inline(always)]
-pub fn validate_state_size<C: Combiner, F: Arch, const D: usize>(
+pub fn validate_state_size<C: Combiner, A: Arch, const D: usize>(
     grid_size: [usize; D],
     slice_len: usize,
 ) {
-    if C::State::<F>::STATE_SIZE > 0 {
+    if C::State::<A>::STATE_SIZE > 0 {
         let total_size: usize = grid_size.iter().product();
-        let required_size = total_size * C::State::<F>::STATE_SIZE;
+        let required_size = total_size * C::State::<A>::STATE_SIZE;
         assert!(
             slice_len >= required_size,
             "Uniform grid with dimensions {:?} with {} state variables requires a state size of{required_size}, which is more than the given slice length of {slice_len}",
             required_size,
-            C::State::<F>::STATE_SIZE,
+            C::State::<A>::STATE_SIZE,
         );
     }
 }
 
 #[inline(always)]
-pub fn pad_grid_size<F: Arch, const D: usize>(grid_size: [usize; D]) -> [usize; D] {
-    let lanes: usize = Simd::<f32, F>::LANES;
+pub fn pad_grid_size<A: Arch, const D: usize>(grid_size: [usize; D]) -> [usize; D] {
+    let lanes: usize = Simd::<f32, A>::LANES;
     from_fn(|i| lanes - grid_size[i] % lanes + grid_size[i] + lanes)
 }
 

@@ -2,6 +2,9 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Simplex;
+use crate::noise::util::constants::{
+    BYTE_SHUFFLE, X_GRAD_ENCODING, Y_GRAD_ENCODING, Z_GRAD_ENCODING,
+};
 
 const SKEW_3D: f32 = 1.0 / 3.0;
 const UNSKEW_3D: f32 = 1.0 / 6.0;
@@ -24,17 +27,11 @@ impl BatchGenerator<3> for Simplex {
         let zero: Simd<f32, A> = Simd::splat(0.0);
         let three_int: Simd<u32, A> = Simd::splat(3);
 
-        let c1: Simd<u32, A> = Simd::splat(0x09009999);
-        let c2: Simd<u32, A> = Simd::splat(0xA59900A5);
-        let c3: Simd<u32, A> = Simd::splat(0x90A5A500);
+        let x_encoding: Simd<u32, A> = Simd::splat(X_GRAD_ENCODING);
+        let y_encoding: Simd<u32, A> = Simd::splat(Y_GRAD_ENCODING);
+        let z_encoding: Simd<u32, A> = Simd::splat(Z_GRAD_ENCODING);
 
         // Hash constants.
-        const BYTE_SHUFFLE: [u8; 64] = [
-            3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8,
-            10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2,
-            1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13,
-        ];
-
         // TODO: Figure out what this needs to be.
         const S: f32 = 100.0;
         const GRAD_TABLE: [f32; 4] = [0.0, S, -S, 0.0];
@@ -122,18 +119,18 @@ impl BatchGenerator<3> for Simplex {
         let indices_mi2 = (mix_mi2 >> 28) << 1;
         let indices_hi = (mix_hi >> 28) << 1;
 
-        let x_grads_lo = ((c1 >> indices_lo) & three_int).gather(&GRAD_TABLE);
-        let y_grads_lo = ((c2 >> indices_lo) & three_int).gather(&GRAD_TABLE);
-        let z_grads_lo = ((c3 >> indices_lo) & three_int).gather(&GRAD_TABLE);
-        let x_grads_mi1 = ((c1 >> indices_mi1) & three_int).gather(&GRAD_TABLE);
-        let y_grads_mi1 = ((c2 >> indices_mi1) & three_int).gather(&GRAD_TABLE);
-        let z_grads_mi1 = ((c3 >> indices_mi1) & three_int).gather(&GRAD_TABLE);
-        let x_grads_mi2 = ((c1 >> indices_mi2) & three_int).gather(&GRAD_TABLE);
-        let y_grads_mi2 = ((c2 >> indices_mi2) & three_int).gather(&GRAD_TABLE);
-        let z_grads_mi2 = ((c3 >> indices_mi2) & three_int).gather(&GRAD_TABLE);
-        let x_grads_hi = ((c1 >> indices_hi) & three_int).gather(&GRAD_TABLE);
-        let y_grads_hi = ((c2 >> indices_hi) & three_int).gather(&GRAD_TABLE);
-        let z_grads_hi = ((c3 >> indices_hi) & three_int).gather(&GRAD_TABLE);
+        let x_grads_lo = ((x_encoding >> indices_lo) & three_int).gather(&GRAD_TABLE);
+        let y_grads_lo = ((y_encoding >> indices_lo) & three_int).gather(&GRAD_TABLE);
+        let z_grads_lo = ((z_encoding >> indices_lo) & three_int).gather(&GRAD_TABLE);
+        let x_grads_mi1 = ((x_encoding >> indices_mi1) & three_int).gather(&GRAD_TABLE);
+        let y_grads_mi1 = ((y_encoding >> indices_mi1) & three_int).gather(&GRAD_TABLE);
+        let z_grads_mi1 = ((z_encoding >> indices_mi1) & three_int).gather(&GRAD_TABLE);
+        let x_grads_mi2 = ((x_encoding >> indices_mi2) & three_int).gather(&GRAD_TABLE);
+        let y_grads_mi2 = ((y_encoding >> indices_mi2) & three_int).gather(&GRAD_TABLE);
+        let z_grads_mi2 = ((z_encoding >> indices_mi2) & three_int).gather(&GRAD_TABLE);
+        let x_grads_hi = ((x_encoding >> indices_hi) & three_int).gather(&GRAD_TABLE);
+        let y_grads_hi = ((y_encoding >> indices_hi) & three_int).gather(&GRAD_TABLE);
+        let z_grads_hi = ((z_encoding >> indices_hi) & three_int).gather(&GRAD_TABLE);
 
         // Sum of products: 44
         let t_lo = (half

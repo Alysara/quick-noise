@@ -8,6 +8,7 @@ use crate::GridGenerator;
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
 use crate::noise::generators::Value;
+use crate::noise::util::constants::{BYTE_SHUFFLE, VALUE_EXP_MASK, HASH_MASK, HASH_PRIME};
 use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::*;
 
@@ -144,23 +145,17 @@ pub(super) fn fill_gradients_3d<'a, A: Arch>(
     let y_rem = grid_data.octave_tiling[1].map_or(y_start, |t| y_start.rem_euclid(t as i32));
     let y_vec = Simd::splat((y_rem as u32).wrapping_mul(params.seed));
 
-    const BYTE_SHUFFLE: [u8; 64] = [
-        3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9,
-        15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6,
-        5, 11, 8, 10, 9, 15, 12, 14, 13,
-    ];
-
     let shuffle_indices = Simd::<u8, A>::from_slice(&BYTE_SHUFFLE[..]);
 
-    let prime = Simd::splat(0x85ebca6b_u32);
+    let prime = Simd::splat(HASH_PRIME);
     let z_shuf: [_; 2] = from_fn(|i| z_vec[i].permute_8(shuffle_indices) ^ prime);
     let y_shuf = y_vec.permute_8(shuffle_indices) ^ prime;
     let zy_mix: [_; 2] = from_fn(|i| z_shuf[i] * y_shuf);
 
     // Main vectorized bit mixing loop.
     let end_index = grid_data.num_loops[0] + 1;
-    let hash_mask: Simd<u32, A> = Simd::splat(0x007FFFFF);
-    let exp_bits: Simd<u32, A> = Simd::splat(0x40000000);
+    let hash_mask: Simd<u32, A> = Simd::splat(HASH_MASK);
+    let exp_bits: Simd<u32, A> = Simd::splat(VALUE_EXP_MASK);
     let three: Simd<f32, A> = Simd::splat(3.0);
 
     if let Some(x_tiling) = grid_data.octave_tiling[0] {
@@ -510,10 +505,9 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
 
         // Base interpolation.
         unsafe {
-            *self.top.as_mut().get_unchecked_mut(block) = z_lerp.mul_add(top_dif, tf);
+            *self.top.get_unchecked_mut(block) = z_lerp.mul_add(top_dif, tf);
             let bottom = z_lerp.mul_add(bottom_dif, bf);
-            *self.dif.as_mut().get_unchecked_mut(block) =
-                bottom - *self.top.as_ref().get_unchecked(block);
+            *self.dif.get_unchecked_mut(block) = bottom - *self.top.get_unchecked(block);
         }
     }
 
@@ -541,9 +535,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         for block in 0..num_blocks {
             let index = index + x + block * Simd::<f32, A>::LANES;
 
-            self.process_factors_block::<FULL>(
-                block, y_lerp, index, state, dst,
-            );
+            self.process_factors_block::<FULL>(block, y_lerp, index, state, dst);
         }
 
         if ACCESS_MODE != FULL {
@@ -563,8 +555,8 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         let access_mode = SimdAccessMode::from_u8(ACCESS_MODE);
         let output = unsafe {
             y_lerp.mul_add(
-                *self.dif.as_ref().get_unchecked(block),
-                *self.top.as_ref().get_unchecked(block),
+                *self.dif.get_unchecked(block),
+                *self.top.get_unchecked(block),
             )
         };
 

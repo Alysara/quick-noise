@@ -6,6 +6,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
+use crate::noise::util::constants::{BYTE_SHUFFLE, HASH_PRIME};
 use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::*;
 use crate::{GridGenerator, Perlin};
@@ -135,12 +136,7 @@ pub(super) fn fill_gradients_2d<'a, A: Arch>(
     let y_rem = grid_data.octave_tiling[1].map_or(y_start, |t| y_start.rem_euclid(t as i32));
     let y_vec = Simd::<u32, A>::splat((y_rem as u32).wrapping_mul(params.seed));
 
-    let prime = Simd::<u32, A>::splat(0x85ebca6b_u32);
-    const BYTE_SHUFFLE: [u8; 64] = [
-        3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9,
-        15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6,
-        5, 11, 8, 10, 9, 15, 12, 14, 13,
-    ];
+    let prime = Simd::<u32, A>::splat(HASH_PRIME);
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
     let y_shuf = y_vec.permute_8(shuffle_indices) ^ prime;
 
@@ -436,19 +432,18 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         let prod_sum_low_dif = prod_sum_br - prod_sum_bl;
 
         unsafe {
-            *self.top.as_mut().get_unchecked_mut(block) =
+            *self.top.get_unchecked_mut(block) =
                 x_lerp.mul_add(prod_sum_top_dif, prod_sum_tl) * self.weight_vec;
             let base_lerp_bottom = x_lerp.mul_add(prod_sum_low_dif, prod_sum_bl) * self.weight_vec;
-            *self.dif.as_mut().get_unchecked_mut(block) =
-                base_lerp_bottom - *self.top.as_ref().get_unchecked(block);
+            *self.dif.get_unchecked_mut(block) = base_lerp_bottom - *self.top.get_unchecked(block);
 
             // Offset interpolation.
-            *self.d_top.as_mut().get_unchecked_mut(block) =
+            *self.d_top.get_unchecked_mut(block) =
                 x_lerp.mul_add(y_tr - y_tl, y_tl) * self.y_weighted_increment;
             let y_offset_lerp_bottom =
                 x_lerp.mul_add(y_br - y_bl, y_bl) * self.y_weighted_increment;
-            *self.d_dif.as_mut().get_unchecked_mut(block) =
-                y_offset_lerp_bottom - *self.d_top.as_ref().get_unchecked(block);
+            *self.d_dif.get_unchecked_mut(block) =
+                y_offset_lerp_bottom - *self.d_top.get_unchecked(block);
         }
     }
 
@@ -476,9 +471,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         for block in 0..num_blocks {
             let index = index + x + block * Simd::<f32, A>::LANES;
 
-            self.process_factors_block::<FULL>(
-                block, y_lerp, index, state, dst,
-            );
+            self.process_factors_block::<FULL>(block, y_lerp, index, state, dst);
         }
 
         if ACCESS_MODE != FULL {
@@ -498,8 +491,8 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         let access_mode = SimdAccessMode::from_u8(ACCESS_MODE);
         let output = unsafe {
             y_lerp.mul_add(
-                *self.dif.as_ref().get_unchecked(block),
-                *self.top.as_ref().get_unchecked(block),
+                *self.dif.get_unchecked(block),
+                *self.top.get_unchecked(block),
             )
         };
 
@@ -538,10 +531,8 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
 
         // Walk along the grid by accumulating interpolation components.
         unsafe {
-            *self.dif.as_mut().get_unchecked_mut(block) +=
-                *self.d_dif.as_ref().get_unchecked(block);
-            *self.top.as_mut().get_unchecked_mut(block) +=
-                *self.d_top.as_ref().get_unchecked(block);
+            *self.dif.get_unchecked_mut(block) += *self.d_dif.get_unchecked(block);
+            *self.top.get_unchecked_mut(block) += *self.d_top.get_unchecked(block);
         }
     }
 }

@@ -7,6 +7,7 @@ use crate::GridGenerator;
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
 use crate::noise::generators::Value;
+use crate::noise::util::constants::{BYTE_SHUFFLE, VALUE_EXP_MASK, HASH_MASK, HASH_PRIME};
 use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::*;
 
@@ -129,18 +130,13 @@ pub(super) fn fill_gradients_2d<'a, A: Arch>(
 
     let y_vec = Simd::splat((y_rem as u32).wrapping_mul(params.seed));
 
-    let prime = Simd::splat(0x85ebca6b_u32);
-    const BYTE_SHUFFLE: [u8; 64] = [
-        3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9,
-        15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6,
-        5, 11, 8, 10, 9, 15, 12, 14, 13,
-    ];
+    let prime = Simd::splat(HASH_PRIME);
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
     let y_shuf = y_vec.permute_8(shuffle_indices) ^ prime;
     let y_shuf = y_shuf * y_shuf;
 
-    let hash_mask: Simd<u32, A> = Simd::splat(0x007FFFFF);
-    let exp_bits: Simd<u32, A> = Simd::splat(0x40000000);
+    let hash_mask: Simd<u32, A> = Simd::splat(HASH_MASK);
+    let exp_bits: Simd<u32, A> = Simd::splat(VALUE_EXP_MASK);
     let three: Simd<f32, A> = Simd::splat(3.0);
 
     if let Some(x_tiling) = grid_data.octave_tiling[0] {
@@ -312,6 +308,10 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             0..self.config.block_tail_start
         };
 
+        let process = |this: &mut Self, state: &mut [f32], dst: &mut [f32], x, y, index| {
+            this.process_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(x, y, index, state, dst)
+        };
+
         let mut x = range.start;
         while x < range.end {
             self.initialize_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(x);
@@ -323,33 +323,15 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
                 if y + 4 > self.y_range.end {
                     // Slow single y iteration path.
                     std::hint::cold_path();
-                    self.process_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(x, y, idx, state, dst);
+                    process(self, state, dst, x, y, idx);
                     y += 1;
                     idx += y_step;
                 } else {
                     // Fast unrolled 4x y iteration path.
-                    self.process_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(x, y, idx, state, dst);
-                    self.process_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(
-                        x,
-                        y + 1,
-                        idx + y_step,
-                        state,
-                        dst,
-                    );
-                    self.process_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(
-                        x,
-                        y + 2,
-                        idx + 2 * y_step,
-                        state,
-                        dst,
-                    );
-                    self.process_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(
-                        x,
-                        y + 3,
-                        idx + 3 * y_step,
-                        state,
-                        dst,
-                    );
+                    process(self, state, dst, x, y, idx);
+                    process(self, state, dst, x, y + 1, idx + y_step);
+                    process(self, state, dst, x, y + 2, idx + 2 * y_step);
+                    process(self, state, dst, x, y + 3, idx + 3 * y_step);
                     y += 4;
                     idx += y_step * 4;
                 }
@@ -391,37 +373,13 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
                 self.gradients.bl.ld_buf::<ACCESS_MODE>(index, self.config),
                 self.gradients.br.ld_buf::<ACCESS_MODE>(index, self.config),
             )
-
-            // match access_mode {
-            //     // Use unaligned load to capture 'end' of the partial vector.
-            //     SimdAccessMode::Partial => {
-            //         let index = index + self.config.partial_start;
-            //         (
-            //             self.grid_data.fade_factors[0].load_simd(index),
-            //             self.gradients.tl.load_simd(index),
-            //             self.gradients.tr.load_simd(index),
-            //             self.gradients.bl.load_simd(index),
-            //             self.gradients.br.load_simd(index),
-            //         )
-            //     }
-            //     // Use aligned load to capture full vector for Full mode.
-            //     // Use aligned load to capture padded vector for Scalar mode.
-            //     _ => (
-            //         self.grid_data.fade_factors[0].load_simd_aligned(index),
-            //         self.gradients.tl.load_simd_aligned(index),
-            //         self.gradients.tr.load_simd_aligned(index),
-            //         self.gradients.bl.load_simd_aligned(index),
-            //         self.gradients.br.load_simd_aligned(index),
-            //     ),
-            // }
         };
 
         // Base interpolation.
         unsafe {
-            *self.top.as_mut().get_unchecked_mut(block) = x_lerp.mul_add(tr - tl, tl) * self.weight;
+            *self.top.get_unchecked_mut(block) = x_lerp.mul_add(tr - tl, tl) * self.weight;
             let bottom = x_lerp.mul_add(br - bl, bl) * self.weight;
-            *self.dif.as_mut().get_unchecked_mut(block) =
-                bottom - *self.top.as_ref().get_unchecked(block);
+            *self.dif.get_unchecked_mut(block) = bottom - *self.top.get_unchecked(block);
         }
     }
 
@@ -449,9 +407,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         for block in 0..num_blocks {
             let index = index + x + block * Simd::<f32, A>::LANES;
 
-            self.process_factors_block::<FULL>(
-                block, y_lerp, index, state, dst,
-            );
+            self.process_factors_block::<FULL>(block, y_lerp, index, state, dst);
         }
 
         if ACCESS_MODE != FULL {
@@ -471,8 +427,8 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         let access_mode = SimdAccessMode::from_u8(ACCESS_MODE);
         let output = unsafe {
             y_lerp.mul_add(
-                *self.dif.as_ref().get_unchecked(block),
-                *self.top.as_ref().get_unchecked(block),
+                *self.dif.get_unchecked(block),
+                *self.top.get_unchecked(block),
             )
         };
 

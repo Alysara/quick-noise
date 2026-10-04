@@ -37,28 +37,38 @@ params_hybrid_multi_builder!(OctaveBatchNoiseBuilder, ['a, const D: usize, T: Ba
 params_noise_scaling_2d!(OctaveBatchNoiseBuilder, ['a, C: Combiner, G: BatchGenerator<2>, A: Arch, I: DimIter<A, 2>], ['a, 2, C, G, A, I]);
 params_noise_scaling_3d!(OctaveBatchNoiseBuilder, ['a, C: Combiner, G: BatchGenerator<3>, A: Arch, I: DimIter<A, 3>], ['a, 3, C, G, A, I]);
 
-impl<F: Combiner, S: BatchGenerator<2>> BatchNoise<2, F, S> {
+impl<C: Combiner, G: BatchGenerator<2>> BatchNoise<2, C, G> {
     /// Creates a new builder using a custom octave list to configure
     /// batches of noise.
+    ///
+    /// # Type Parameters
+    /// - `A`: The simd feature set to use.
+    /// - `X`: Simd iterator type for x-inputs.
+    /// - `Y`: Simd iterator type for y-inputs.
+    ///
+    /// # Parameters
+    /// - `octave_list`: List of octaves to make noise with.
+    /// - `x_iter`: Simd iterator for x-inputs.
+    /// - `y_iter`: Simd iterator for y-inputs.
     pub fn builder_with_octaves<'a, A, X, Y>(
         octave_list: &'a [Octave<2>],
         x_iter: X,
         y_iter: Y,
-    ) -> OctaveBatchNoiseBuilder<'a, 2, F, S, A, Zip<(X, Y)>>
+    ) -> OctaveBatchNoiseBuilder<'a, 2, C, G, A, Zip<(X, Y)>>
     where
         A: Arch,
         X: Iterator<Item = Simd<f32, A>>,
         Y: Iterator<Item = Simd<f32, A>>,
         Zip<(X, Y)>: DimIter<A, 2>,
     {
-        OctaveBatchNoiseBuilder::<'a, 2, F, S, A, _>::new(octave_list, x_iter, y_iter)
+        OctaveBatchNoiseBuilder::<'a, 2, C, G, A, _>::new(octave_list, x_iter, y_iter)
     }
 }
 
-impl<'a, S, F, A, X, Y> OctaveBatchNoiseBuilder<'a, 2, F, S, A, Zip<(X, Y)>>
+impl<'a, G, C, A, X, Y> OctaveBatchNoiseBuilder<'a, 2, C, G, A, Zip<(X, Y)>>
 where
-    S: BatchGenerator<2>,
-    F: Combiner,
+    G: BatchGenerator<2>,
+    C: Combiner,
     A: Arch,
     X: Iterator<Item = Simd<f32, A>>,
     Y: Iterator<Item = Simd<f32, A>>,
@@ -70,14 +80,14 @@ where
             combiner_config: Default::default(),
             octave_list,
             iters: multizip((x_iter, y_iter)),
-            _noise_type: PhantomData::<S>,
+            _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
         }
     }
 
     pub fn from_configs(
         noise_config: OctaveNoiseConfig<2>,
-        combiner_config: F::Config,
+        combiner_config: C::Config,
         octave_list: &'a [Octave<2>],
         x_iter: X,
         y_iter: Y,
@@ -87,21 +97,33 @@ where
             combiner_config,
             octave_list,
             iters: multizip((x_iter, y_iter)),
-            _noise_type: PhantomData::<S>,
+            _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
         }
     }
 }
 
-impl<F: Combiner, S: BatchGenerator<3>> BatchNoise<3, F, S> {
+impl<C: Combiner, G: BatchGenerator<3>> BatchNoise<3, C, G> {
     /// Creates a new builder using a custom octave list to configure
     /// batches of noise.
+    ///
+    /// # Type Parameters
+    /// - `A`: The simd feature set to use.
+    /// - `X`: Simd iterator type for x-inputs.
+    /// - `Y`: Simd iterator type for y-inputs.
+    /// - `Z`: Simd iterator type for z-inputs.
+    ///
+    /// # Parameters
+    /// - `octave_list`: List of octaves to make noise with.
+    /// - `x_iter`: Simd iterator for x-inputs.
+    /// - `y_iter`: Simd iterator for y-inputs.
+    /// - `z_iter`: Simd iterator for z-inputs.
     pub fn builder_with_octaves<'a, A, X, Y, Z>(
         octave_list: &'a [Octave<3>],
         x_iter: X,
         y_iter: Y,
         z_iter: Z,
-    ) -> OctaveBatchNoiseBuilder<'a, 3, F, S, A, Zip<(X, Y, Z)>>
+    ) -> OctaveBatchNoiseBuilder<'a, 3, C, G, A, Zip<(X, Y, Z)>>
     where
         A: Arch,
         X: Iterator<Item = Simd<f32, A>>,
@@ -109,14 +131,14 @@ impl<F: Combiner, S: BatchGenerator<3>> BatchNoise<3, F, S> {
         Z: Iterator<Item = Simd<f32, A>>,
         Zip<(X, Y, Z)>: DimIter<A, 3>,
     {
-        OctaveBatchNoiseBuilder::<3, F, S, A, _>::new(octave_list, x_iter, y_iter, z_iter)
+        OctaveBatchNoiseBuilder::<3, C, G, A, _>::new(octave_list, x_iter, y_iter, z_iter)
     }
 }
 
-impl<'a, S, F, A, X, Y, Z> OctaveBatchNoiseBuilder<'a, 3, F, S, A, Zip<(X, Y, Z)>>
+impl<'a, G, C, A, X, Y, Z> OctaveBatchNoiseBuilder<'a, 3, C, G, A, Zip<(X, Y, Z)>>
 where
-    S: BatchGenerator<3>,
-    F: Combiner,
+    G: BatchGenerator<3>,
+    C: Combiner,
     A: Arch,
     X: Iterator<Item = Simd<f32, A>>,
     Y: Iterator<Item = Simd<f32, A>>,
@@ -129,14 +151,14 @@ where
             combiner_config: Default::default(),
             octave_list,
             iters: multizip((x_iter, y_iter, z_iter)),
-            _noise_type: PhantomData::<S>,
+            _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
         }
     }
 
     pub fn from_configs(
         noise_config: OctaveNoiseConfig<3>,
-        combiner_config: F::Config,
+        combiner_config: C::Config,
         octave_list: &'a [Octave<3>],
         x_iter: X,
         y_iter: Y,
@@ -147,7 +169,7 @@ where
             combiner_config,
             octave_list,
             iters: multizip((x_iter, y_iter, z_iter)),
-            _noise_type: PhantomData::<S>,
+            _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
         }
     }

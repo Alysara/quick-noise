@@ -18,6 +18,19 @@ fn get_max<const D: usize>(array: [f32; D]) -> f32 {
 
 /// Helper static function for custom noise.
 impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
+    /// Samples a batch of noise using arbitrary inputs from simd iterators with custom octaves.
+    /// Returns a new iterator with the noise result without intermediate stores.
+    /// Using the builders instead is recommended for ease-of-use. 
+    ///
+    /// # Type Parameters:
+    /// - `A`: The simd feature set to use.
+    /// - `I`: The type of the simd iterator tuple input.
+    /// 
+    /// # Parameters:
+    /// - `noise_config`: The parameters of the noise being generated.
+    /// - `combiner_config`: Additional parameters for the combiner algorithm.
+    /// - `octave_list`: List of octaves to create noise with.
+    /// - `iters`: A tuple containing input simd iterators for each dimension.
     #[inline(always)]
     pub fn sample_with_octaves<A: Arch, I: DimIter<A, D>>(
         noise_config: OctaveNoiseConfig<D>,

@@ -38,7 +38,7 @@ pub trait GridGenerator<const D: usize>: Default + Copy + Clone + PartialEq {
     /// - `combiner_config`: Config specifying combiner parameters
     /// - `state`: Buffer containing sample information across octaves
     /// - `dst`: Buffer to insert the results into
-    fn sample_grid<F: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
+    fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<D>,
         combiner_config: C::Config,
         state: &mut [f32],
@@ -47,9 +47,9 @@ pub trait GridGenerator<const D: usize>: Default + Copy + Clone + PartialEq {
 }
 
 /// Static struct for sampling grid noise.
-pub struct GridNoise<const D: usize, C: Combiner, S: GridGenerator<D>> {
+pub struct GridNoise<const D: usize, C: Combiner, G: GridGenerator<D>> {
     _fractal: PhantomData<C>,
-    _sampler: PhantomData<S>,
+    _sampler: PhantomData<G>,
 }
 
 /// An interface struct for creating grid noise.
@@ -210,16 +210,24 @@ impl<const D: usize, A: Arch> Grid<D, A> {
     }
 
     /// Creates a new builder to easily configure a grid region of noise.
-    pub fn builder<F: Combiner, T: GridGenerator<D>>(&self) -> GridNoiseBuilder<D, F, T, A> {
+    ///
+    /// # Type Parameters
+    /// - `C`: The algorithm to combine separate noise passes (octaves) together.
+    /// - `G`: The algorithm to sample noise with.
+    pub fn builder<C: Combiner, G: GridGenerator<D>>(&self) -> GridNoiseBuilder<D, C, G, A> {
         GridNoiseBuilder::from_config(self.config)
     }
 
     /// Creates a new builder using a custom octave list to configure
     /// a grid region of noise.
-    pub fn builder_with_octaves<'a, F: Combiner, T: GridGenerator<D>>(
+    ///
+    /// # Type Parameters
+    /// - `C`: The algorithm to combine separate noise passes (octaves) together.
+    /// - `G`: The algorithm to sample noise with.
+    pub fn builder_with_octaves<'a, C: Combiner, G: GridGenerator<D>>(
         &self,
         octave_list: &'a [Octave<D>],
-    ) -> OctaveGridNoiseBuilder<'a, D, F, T, A> {
+    ) -> OctaveGridNoiseBuilder<'a, D, C, G, A> {
         OctaveGridNoiseBuilder::new(self.config, octave_list)
     }
 }

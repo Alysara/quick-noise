@@ -2,6 +2,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Perlin;
+use crate::noise::util::constants::{BYTE_SHUFFLE, GRAD_TABLE, HASH_PRIME, X_GRAD_ENCODING, Y_GRAD_ENCODING, Z_GRAD_ENCODING};
 
 #[enable_targets(A)]
 impl BatchGenerator<3> for Perlin {
@@ -17,30 +18,13 @@ impl BatchGenerator<3> for Perlin {
         let one: Simd<f32, A> = Simd::splat(1.0);
         let three_int: Simd<u32, A> = Simd::splat(3);
 
-        let c1: Simd<u32, A> = Simd::splat(0x90A5A500);
-        let c2: Simd<u32, A> = Simd::splat(0xA59900A5);
-        let c3: Simd<u32, A> = Simd::splat(0x09009999);
-
-        // Hash constants.
-        const BYTE_SHUFFLE: [u8; 64] = [
-            3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8,
-            10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2,
-            1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13,
-        ];
-
-        const GRAD_TABLE: [f32; 4] = [0.0, 1.0, -1.0, 0.0];
-
-        // X: 0000 1001 0000 0000 1001 1001 1001 1001
-        // Y: 1010 0101 1001 1001 0000 0000 1010 0101
-        // Z: 1001 0000 1010 0101 1010 0101 0000 0000
-        //
-        // X: 09009999
-        // Y: A59900A5
-        // Z: 90A5A500
+        let x_encoding: Simd<u32, A> = Simd::splat(X_GRAD_ENCODING);
+        let y_encoding: Simd<u32, A> = Simd::splat(Y_GRAD_ENCODING);
+        let z_encoding: Simd<u32, A> = Simd::splat(Z_GRAD_ENCODING);
 
         let shuffle_indices = Simd::<u8, A>::from_slice(&BYTE_SHUFFLE[..]);
         let channel_seed = Simd::splat(seed);
-        let prime = Simd::splat(0x85ebca6b_u32);
+        let prime = Simd::splat(HASH_PRIME);
 
         // Scale: 3
         let x_scaled = input[0] * freq[0];
@@ -105,30 +89,30 @@ impl BatchGenerator<3> for Perlin {
         let indices_blb = (mix_blb >> 28) << 1;
         let indices_brb = (mix_brb >> 28) << 1;
 
-        let x_grads_tlf = ((c1 >> indices_tlf) & three_int).gather(&GRAD_TABLE);
-        let x_grads_trf = ((c1 >> indices_trf) & three_int).gather(&GRAD_TABLE);
-        let x_grads_blf = ((c1 >> indices_blf) & three_int).gather(&GRAD_TABLE);
-        let x_grads_brf = ((c1 >> indices_brf) & three_int).gather(&GRAD_TABLE);
-        let x_grads_tlb = ((c1 >> indices_tlb) & three_int).gather(&GRAD_TABLE);
-        let x_grads_trb = ((c1 >> indices_trb) & three_int).gather(&GRAD_TABLE);
-        let x_grads_blb = ((c1 >> indices_blb) & three_int).gather(&GRAD_TABLE);
-        let x_grads_brb = ((c1 >> indices_brb) & three_int).gather(&GRAD_TABLE);
-        let y_grads_tlf = ((c2 >> indices_tlf) & three_int).gather(&GRAD_TABLE);
-        let y_grads_trf = ((c2 >> indices_trf) & three_int).gather(&GRAD_TABLE);
-        let y_grads_blf = ((c2 >> indices_blf) & three_int).gather(&GRAD_TABLE);
-        let y_grads_brf = ((c2 >> indices_brf) & three_int).gather(&GRAD_TABLE);
-        let y_grads_tlb = ((c2 >> indices_tlb) & three_int).gather(&GRAD_TABLE);
-        let y_grads_trb = ((c2 >> indices_trb) & three_int).gather(&GRAD_TABLE);
-        let y_grads_blb = ((c2 >> indices_blb) & three_int).gather(&GRAD_TABLE);
-        let y_grads_brb = ((c2 >> indices_brb) & three_int).gather(&GRAD_TABLE);
-        let z_grads_tlf = ((c3 >> indices_tlf) & three_int).gather(&GRAD_TABLE);
-        let z_grads_trf = ((c3 >> indices_trf) & three_int).gather(&GRAD_TABLE);
-        let z_grads_blf = ((c3 >> indices_blf) & three_int).gather(&GRAD_TABLE);
-        let z_grads_brf = ((c3 >> indices_brf) & three_int).gather(&GRAD_TABLE);
-        let z_grads_tlb = ((c3 >> indices_tlb) & three_int).gather(&GRAD_TABLE);
-        let z_grads_trb = ((c3 >> indices_trb) & three_int).gather(&GRAD_TABLE);
-        let z_grads_blb = ((c3 >> indices_blb) & three_int).gather(&GRAD_TABLE);
-        let z_grads_brb = ((c3 >> indices_brb) & three_int).gather(&GRAD_TABLE);
+        let x_grads_tlf = ((x_encoding >> indices_tlf) & three_int).gather(&GRAD_TABLE);
+        let x_grads_trf = ((x_encoding >> indices_trf) & three_int).gather(&GRAD_TABLE);
+        let x_grads_blf = ((x_encoding >> indices_blf) & three_int).gather(&GRAD_TABLE);
+        let x_grads_brf = ((x_encoding >> indices_brf) & three_int).gather(&GRAD_TABLE);
+        let x_grads_tlb = ((x_encoding >> indices_tlb) & three_int).gather(&GRAD_TABLE);
+        let x_grads_trb = ((x_encoding >> indices_trb) & three_int).gather(&GRAD_TABLE);
+        let x_grads_blb = ((x_encoding >> indices_blb) & three_int).gather(&GRAD_TABLE);
+        let x_grads_brb = ((x_encoding >> indices_brb) & three_int).gather(&GRAD_TABLE);
+        let y_grads_tlf = ((y_encoding >> indices_tlf) & three_int).gather(&GRAD_TABLE);
+        let y_grads_trf = ((y_encoding >> indices_trf) & three_int).gather(&GRAD_TABLE);
+        let y_grads_blf = ((y_encoding >> indices_blf) & three_int).gather(&GRAD_TABLE);
+        let y_grads_brf = ((y_encoding >> indices_brf) & three_int).gather(&GRAD_TABLE);
+        let y_grads_tlb = ((y_encoding >> indices_tlb) & three_int).gather(&GRAD_TABLE);
+        let y_grads_trb = ((y_encoding >> indices_trb) & three_int).gather(&GRAD_TABLE);
+        let y_grads_blb = ((y_encoding >> indices_blb) & three_int).gather(&GRAD_TABLE);
+        let y_grads_brb = ((y_encoding >> indices_brb) & three_int).gather(&GRAD_TABLE);
+        let z_grads_tlf = ((z_encoding >> indices_tlf) & three_int).gather(&GRAD_TABLE);
+        let z_grads_trf = ((z_encoding >> indices_trf) & three_int).gather(&GRAD_TABLE);
+        let z_grads_blf = ((z_encoding >> indices_blf) & three_int).gather(&GRAD_TABLE);
+        let z_grads_brf = ((z_encoding >> indices_brf) & three_int).gather(&GRAD_TABLE);
+        let z_grads_tlb = ((z_encoding >> indices_tlb) & three_int).gather(&GRAD_TABLE);
+        let z_grads_trb = ((z_encoding >> indices_trb) & three_int).gather(&GRAD_TABLE);
+        let z_grads_blb = ((z_encoding >> indices_blb) & three_int).gather(&GRAD_TABLE);
+        let z_grads_brb = ((z_encoding >> indices_brb) & three_int).gather(&GRAD_TABLE);
 
         // Interpolation: 38
         let prod_tlf = x_grads_tlf.mul_add(

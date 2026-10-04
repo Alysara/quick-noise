@@ -2,6 +2,7 @@ use simply_simd::{Arch, Simd};
 
 use crate::{Combiner, CombinerArray};
 
+/// Config struct for the Ridged combiner.
 #[derive(Copy, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RidgedConfig {
@@ -14,8 +15,11 @@ impl Default for RidgedConfig {
     }
 }
 
+/// Combines noise using a signal that propagates into a running weight
+/// for subsequent samples.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct Ridged {}
+
 impl Combiner for Ridged {
     const WEIGHT_DECAY: bool = false;
     type State<A: Arch> = CombinerArray<A, 1>;

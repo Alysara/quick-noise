@@ -26,8 +26,8 @@ pub use api::{
     BatchNoiseBuilder, GridNoiseBuilder, OctaveBatchNoiseBuilder, OctaveGridNoiseBuilder,
 };
 pub use noise::combiners::{
-    Billow, Combiner, CombinerArray, CombinerState, Fbm, HybridMulti, Multi, PingPong, Ridged,
-    Terrace,
+    Billow, Combiner, CombinerArray, CombinerState, Fbm, HybridMulti, HybridMultiConfig, Multi,
+    PingPong, PingPongConfig, Ridged, RidgedConfig, Terrace, TerraceConfig,
 };
 pub use noise::generators::{Cellular, Perlin, Simplex, Value};
 // pub use noise::*;

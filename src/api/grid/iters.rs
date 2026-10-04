@@ -5,6 +5,8 @@ use simply_simd::{Arch, Mask, Simd, SimdToArray, enable_targets};
 use crate::Grid;
 
 impl<A: Arch> Grid<2, A> {
+    /// Creates a simd iterator of the x values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn x_iter(&self) -> RowIter<A> {
         let pos = self.config.position;
@@ -12,6 +14,8 @@ impl<A: Arch> Grid<2, A> {
         RowIter::new(dim[0], dim[1], pos[0])
     }
 
+    /// Creates a simd iterator of the y values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn y_iter(&self) -> SliceIter<A> {
         let pos = self.config.position;
@@ -21,6 +25,8 @@ impl<A: Arch> Grid<2, A> {
 }
 
 impl<A: Arch> Grid<3, A> {
+    /// Creates a simd iterator of the x values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn x_iter(&self) -> RowIter<A> {
         let pos = self.config.position;
@@ -28,6 +34,8 @@ impl<A: Arch> Grid<3, A> {
         RowIter::new(dim[0], dim[1] * dim[2], pos[0])
     }
 
+    /// Creates a simd iterator of the y values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn y_iter(&self) -> SliceIter<A> {
         let pos = self.config.position;
@@ -35,6 +43,8 @@ impl<A: Arch> Grid<3, A> {
         SliceIter::new(dim[0], dim[1], dim[2], pos[1])
     }
 
+    /// Creates a simd iterator of the z values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn z_iter(&self) -> SliceIter<A> {
         let pos = self.config.position;
@@ -43,6 +53,9 @@ impl<A: Arch> Grid<3, A> {
     }
 }
 
+/// A simd iterator that iterates through the fastest changing
+/// value (x axis). These values change after every subsequent
+/// sample.
 #[derive(Debug)]
 pub struct RowIter<A: Arch> {
     row_size: usize,
@@ -139,6 +152,9 @@ impl<A: Arch> Iterator for RowIter<A> {
     }
 }
 
+/// A simd iterator that iterates through the non-fastest changing 
+/// values (all axes other than the x axis). These values usually do
+/// not change after every subsequent sample.
 #[derive(Debug)]
 pub struct SliceIter<A: Arch> {
     row_size: usize,

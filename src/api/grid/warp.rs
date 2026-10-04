@@ -7,6 +7,16 @@ use crate::api::batch::interface::DimIter;
 use crate::simd::{Arch, Simd};
 use crate::{BatchGenerator, BatchNoiseBuilder, Combiner, Grid};
 
+/// Creates a builder struct for warping noise.
+///
+/// # Type Parameters
+/// - `C`: The combiner algorithm to use across octaves.
+/// - `G`: The generator algorithm to sample from.
+///
+/// # Parameters
+/// - `warp_strength`: How strongly the warp is applied.
+/// - `x_iter`: An iterator of warp values to distort each sample's x input.
+/// - `y_iter`: An iterator of warp values to distort each sample's y input.
 impl<A: Arch> Grid<2, A> {
     pub fn warp_builder<C: Combiner, G: BatchGenerator<2>>(
         &self,
@@ -28,6 +38,17 @@ impl<A: Arch> Grid<2, A> {
     }
 }
 
+/// Creates a builder struct for warping noise.
+///
+/// # Type Parameters
+/// - `C`: The combiner algorithm to use across octaves.
+/// - `G`: The generator algorithm to sample from.
+///
+/// # Parameters
+/// - `warp_strength`: How strongly the warp is applied.
+/// - `x_iter`: An iterator of warp values to distort each sample's x input.
+/// - `y_iter`: An iterator of warp values to distort each sample's y input.
+/// - `z_iter`: An iterator of warp values to distort each sample's z input.
 impl<A: Arch> Grid<3, A> {
     pub fn warp_builder<C: Combiner, G: BatchGenerator<3>>(
         &self,

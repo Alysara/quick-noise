@@ -2,6 +2,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Value;
+use crate::noise::util::constants::{BYTE_SHUFFLE, VALUE_EXP_MASK, HASH_MASK, HASH_PRIME};
 
 #[enable_targets(A)]
 impl BatchGenerator<3> for Value {
@@ -14,19 +15,12 @@ impl BatchGenerator<3> for Value {
         let neg_two: Simd<f32, A> = Simd::splat(-2.0);
         let three: Simd<f32, A> = Simd::splat(3.0);
 
-        let hash_mask: Simd<u32, A> = Simd::splat(0x007FFFFF);
-        let exp_bits: Simd<u32, A> = Simd::splat(0x40000000);
-
-        // Hash constants.
-        const BYTE_SHUFFLE: [u8; 64] = [
-            3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8,
-            10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2,
-            1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13,
-        ];
+        let hash_mask: Simd<u32, A> = Simd::splat(HASH_MASK);
+        let exp_bits: Simd<u32, A> = Simd::splat(VALUE_EXP_MASK);
 
         let shuffle_indices = Simd::<u8, A>::from_slice(&BYTE_SHUFFLE[..]);
         let channel_seed = Simd::splat(seed);
-        let prime = Simd::splat(0x85ebca6b);
+        let prime = Simd::splat(HASH_PRIME);
 
         // Scale: 3
         let x_scaled = input[0] * freq[0];
