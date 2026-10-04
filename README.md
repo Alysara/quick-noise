@@ -536,6 +536,6 @@ Criterion benches can be run with:
 
 > cargo bench -p quick-noise-benches
 
-Test modules can be run with:
+Test suite can be run with:
 
-> cargo test --features="image" --release
+> cargo test
