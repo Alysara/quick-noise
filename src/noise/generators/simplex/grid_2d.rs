@@ -423,15 +423,4 @@ mod tests {
             "Grid simplex at freq {freq} diverges from the brute-force Simplex by {max_diff}"
         );
     }
-
-    #[test]
-    #[cfg(feature = "image")]
-    fn grid_image() {
-        let grid = Grid::<2>::new(256, 256).seed(42).sample_position(-128, -128);
-
-        grid.builder::<Fbm, Simplex>()
-            .frequency(1.0 / 32.0)
-            .into_iter()
-            .to_grayscale_image(256, 256, "test_images/grid_2d_simplex_seeded.png");
-    }
 }
