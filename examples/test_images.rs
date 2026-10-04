@@ -75,7 +75,7 @@ fn create_test_images_grid_2d() {
         .into_iter()
         .to_grayscale_image(7, 7, "test_images/tiny_batch_perlin.png");
 
-    let grid_2d = Grid::<2, A>::new(1000, 1000).sample_position(-500, -500);
+    let grid_2d = Grid::<2, A>::new(1000, 1000).sample_position(-500.0, -500.0);
     let grid_2d_tiled = Grid::<2, A>::new(1024, 1024).tiling(Some(128), Some(256));
 
     grid_2d
@@ -166,7 +166,7 @@ fn create_test_images_grid_2d() {
         .to_grayscale_image(1024, 2048, "test_images/grid_2d_long_perlin.png");
 
     // Cellular Grid Test
-    let grid = Grid::<2>::new(256, 256).seed(42).sample_position(-128, -128);
+    let grid = Grid::<2>::new(256, 256).seed(42).sample_position(-128.0, -128.0);
 
     grid.builder::<Fbm, Cellular>()
         .frequency(1.0 / 32.0)
@@ -276,7 +276,7 @@ fn create_test_images_grid_3d() {
     .octaves(6)
     .into_iter()
     .to_grayscale_image(7, 7, "test_images/tiny_batch_3d_perlin.png");
-    let grid_3d = Grid::<3, A>::new(1000, 1000, 1).sample_position(-500, -500, 0);
+    let grid_3d = Grid::<3, A>::new(1000, 1000, 1).sample_position(-500.0, -500.0, 0.0);
     let grid_3d_tiled = Grid::<3, A>::new(1024, 1024, 1).tiling(Some(128), Some(256), None);
     grid_3d
         .builder::<Fbm, Perlin>()
@@ -346,7 +346,7 @@ fn create_test_images_grid_3d() {
             "test_images/grid_3d_hybrid_multi_perlin_tiled.png",
         );
 
-    let grid_3d_full = Grid::<3, A>::new(1024, 1024, 32).grid_position(-50, 100, 123);
+    let grid_3d_full = Grid::<3, A>::new(1024, 1024, 32).grid_position(-50.0, 100.0, 123.0);
     grid_3d_full
         .builder::<Fbm, Perlin>()
         .octaves(1)
@@ -508,7 +508,7 @@ fn create_test_images_batch_2d() {
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_2d_terrace_cellular.png");
     
     // Cellular Batch Test
-    let grid = Grid::<2>::new(256, 256).seed(42).sample_position(-128, -128);
+    let grid = Grid::<2>::new(256, 256).seed(42).sample_position(-128.0, -128.0);
 
     BatchNoise::<2, Fbm, Cellular>::builder(grid.x_iter(), grid.y_iter())
         .seed_with_grid(42, 42)

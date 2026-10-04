@@ -40,13 +40,13 @@ macro_rules! validate_2d_iter {
                 validate_iter_output(x.as_slice(), 0.0, 1, $x, $y);
                 validate_iter_output(y.as_slice(), 0.0, $x, $y, 1);
 
-                let grid = grid.grid_position(12, 34);
+                let grid = grid.grid_position(12.0, 34.0);
                 let x: Vec<f32> = grid.x_iter().collect();
                 let y: Vec<f32> = grid.y_iter().collect();
                 validate_iter_output(x.as_slice(), 12.0 * $x as f32, 1, $x, $y);
                 validate_iter_output(y.as_slice(), 34.0 * $y as f32, $x, $y, 1);
 
-                let grid = grid.sample_position(12, 34);
+                let grid = grid.sample_position(12.0, 34.0);
                 let x: Vec<f32> = grid.x_iter().collect();
                 let y: Vec<f32> = grid.y_iter().collect();
                 validate_iter_output(x.as_slice(), 12.0, 1, $x, $y);
@@ -69,7 +69,7 @@ macro_rules! validate_3d_iter {
                 validate_iter_output(y.as_slice(), 0.0, $x, $y, $z);
                 validate_iter_output(z.as_slice(), 0.0, $x * $y, $z, 1);
 
-                let grid = grid.grid_position(12, 34, -77);
+                let grid = grid.grid_position(12.0, 34.0, -77.0);
                 let x: Vec<f32> = grid.x_iter().collect();
                 let y: Vec<f32> = grid.y_iter().collect();
                 let z: Vec<f32> = grid.z_iter().collect();
@@ -77,7 +77,7 @@ macro_rules! validate_3d_iter {
                 validate_iter_output(y.as_slice(), 34.0 * $y as f32, $x, $y, $z);
                 validate_iter_output(z.as_slice(), -77.0 * $z as f32, $x * $y, $z, 1);
 
-                let grid = grid.sample_position(12, 34, -77);
+                let grid = grid.sample_position(12.0, 34.0, -77.0);
                 let x: Vec<f32> = grid.x_iter().collect();
                 let y: Vec<f32> = grid.y_iter().collect();
                 let z: Vec<f32> = grid.z_iter().collect();

@@ -84,7 +84,7 @@ making it easier to have multiple noise maps with the same primary seed.
     
     // Creates an anchor into a region of sample space.
     let grid = Grid::<2>::new(200, 200) // Specify a 2D 200x200 grid.
-        .grid_position(0, 0)
+        .grid_position(0.0, 0.0)
         .seed(102);
         
     grid.builder::<Fbm, Perlin>()
@@ -185,7 +185,7 @@ size of the tiles for each axis specifically.
     use quick_noise::emit::NoiseImageExt;
     
     let grid = Grid::<2>::new(1024, 1024)
-        .grid_position(0, 0)
+        .grid_position(0.0, 0.0)
         .seed(100)
         .tiling(Some(128), Some(128)); // Put None to disable tiling for that axis.
     
@@ -207,7 +207,7 @@ Batch noise operates directly on static methods and takes iterators as inputs. P
 use quick_noise::{Grid, BatchNoise, Fbm, Simplex};
 
 // Use grid for generating iters.
-let grid = Grid::<2>::new(100, 100).grid_position(0, 0);
+let grid = Grid::<2>::new(100, 100).grid_position(0.0, 0.0);
 
 let noise = BatchNoise::<2, Fbm, Simplex>::builder(grid.x_iter(), grid.y_iter())
 	.octaves(6)
@@ -236,7 +236,7 @@ use quick_noise::{Grid, BatchNoise, Ridged, Cellular};
 use quick_noise::simd::StaticSimd;
 use std::iter::zip;
 
-let grid = Grid::<2>::new(128, 128).grid_position(0, 0);
+let grid = Grid::<2>::new(128, 128).grid_position(0.0, 0.0);
 
 let iter_1 = BatchNoise::<2, Ridged, Cellular>::builder(grid.x_iter(), grid.y_iter())
     .seed(0)

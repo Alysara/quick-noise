@@ -51,10 +51,10 @@ impl<'a, const D: usize> GridData<'a, D> {
 
         // Get the starting gradient coordinates and how far the first sample is to the next one.
         let grid_start: [i32; D] =
-            from_fn(|i| (params.position[i] as f32 * increment[i]).floor() as i32);
+            from_fn(|i| (params.position[i] * increment[i]).floor() as i32);
 
         let frac_start: [f32; D] =
-            from_fn(|i| (params.position[i] as f32 * increment[i] - grid_start[i] as f32).max(0.0));
+            from_fn(|i| (params.position[i] * increment[i] - grid_start[i] as f32).max(0.0));
 
         // Quintic lerp the distances to get the fade factor.
         let distances = from_fn(|i| arena.allocate(padded_size[i]));

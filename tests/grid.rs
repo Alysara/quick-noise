@@ -99,6 +99,25 @@ fn long_grid_3d_dyn() {
 }
 
 #[test]
+fn fractional_position_matches_integer_position() {
+    const CHUNK_SIZE: usize = 16;
+    const MIDDLE: usize = CHUNK_SIZE / 2;
+
+    let normal = Grid::<2>::new(CHUNK_SIZE, CHUNK_SIZE);
+    let normal = normal.builder::<Fbm, Perlin>().build();
+
+    // Magnified grid should be able to lookup fractional positions
+    // and they should match with unmagnified grid values
+    let zoomed_out = Grid::<2>::new(2, 2).sample_position(0.5, 0.5);
+    let zommed_out = zoomed_out
+        .builder::<Fbm, Perlin>()
+        .magnification(CHUNK_SIZE as f32)
+        .build();
+
+    assert!((normal[MIDDLE * CHUNK_SIZE + MIDDLE] - zommed_out[0]).abs() < 1e-6);
+}
+
+#[test]
 fn tiled_grid_2d() {
     let grid = Grid::<2>::new(128, 256).tiling(Some(64), None);
 

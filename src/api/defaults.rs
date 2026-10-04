@@ -38,7 +38,7 @@ impl<const D: usize> Default for GridConfig<D> {
         Self {
             grid_size: [32; D],
             grid_seed: 0xc4ceb9fe1a85ec53,
-            position: [0; D],
+            position: [0.0; D],
             tiling: [None; D],
         }
     }
