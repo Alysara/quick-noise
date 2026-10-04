@@ -5,13 +5,15 @@ All changes in `quick-noise` are documented here.
 ## 0.3.0 - In development
 
 ### Added
-- Generator for 2D Cellular grid noise.
+- Generator for 2D Cellular grid noise. ([#12](https://github.com/Alysara/quick-noise/pull/12) by [@Qubittly](https://github.com/Qubittly))
 
 ### Changed
+- Breaking change: Converted to fractional (float) input positions for the Grid API. ([#13](https://github.com/Alysara/quick-noise/pull/13) by [@PPakalns](https://github.com/PPakalns))
 - Performance improvements to Value and Perlin grid noise.
 
 ### Fixed
 - Incorrect cellular noise result for scalar fallback.
+- Missing octave pass for regular grid noise sampler where octaves > 2.
 
 ## 0.2.0 - 2026-07-25
 

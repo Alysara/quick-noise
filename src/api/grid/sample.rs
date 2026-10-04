@@ -66,7 +66,7 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>> GridNoise<D, C, G> {
         }
 
         // Subsequent octaves:
-        for _ in 1..(octaves.saturating_sub(2)) {
+        for _ in 1..(octaves.saturating_sub(1)) {
             if C::WEIGHT_DECAY {
                 params.weight *= noise_config.persistence;
             }
