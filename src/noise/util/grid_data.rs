@@ -182,3 +182,58 @@ impl<'a, const D: usize> PVGridData<'a, D> {
         }
     }
 }
+
+const SQRT_3: f32 = 1.732_050_8;
+const SKEW_2D: f32 = (SQRT_3 - 1.0) / 2.0;
+const UNSKEW_2D: f32 = (3.0 - SQRT_3) / 6.0;
+
+pub(crate) struct SimplexGridData<const D: usize> {
+    pub total_size: usize,
+    pub weight: f32,
+    pub grid_size: [usize; D],
+    pub increment: [f32; D],
+    /// Position of the first sample in output space (`position * increment`).
+    pub origin: [f32; D],
+    /// Skewed lattice index `(i0, j0)` that the first sample (`origin`) falls into.
+    pub grid_start: [i32; D],
+    pub octave_tiling: [Option<u32>; D],
+}
+
+impl<const D: usize> SimplexGridData<D> {
+    #[inline(always)]
+    pub fn new(params: &GridNoiseParams<D>) -> Self {
+        let total_size = params.grid_size.iter().product();
+        let increment = from_fn(|i| params.frequency[i] * params.magnification);
+        let origin = from_fn(|i| params.position[i] as f32 * increment[0]);
+
+        // Skew the region's first sample to locate the enclosing lattice cell.
+        let s = origin.iter().sum::<f32>() * SKEW_2D;
+        let grid_start = from_fn(|i| (origin[i] + s).floor() as i32);
+
+        let octave_tiling = configure_tiling(params);
+
+        Self {
+            total_size,
+            weight: params.weight,
+            grid_size: params.grid_size,
+            increment,
+            origin,
+            grid_start,
+            octave_tiling,
+        }
+    }
+
+    /// Skew a sample-space coordinate into the skewed lattice coordinate space `(i, j, ...)`.
+    #[inline(always)]
+    pub fn skew(&self, coords: &[f32; D]) -> [f32; D] {
+        let s = coords.iter().sum::<f32>() * SKEW_2D;
+        from_fn(|i| coords[i] + s)
+    }
+
+    /// True sample-space position `(x, y, ...)` of a lattice corner `(i, j, ...)`.
+    #[inline(always)]
+    pub fn unskew(&self, coords: &[i32; D]) -> [f32; D] {
+        let t = coords.iter().sum::<i32>() as f32 * UNSKEW_2D;
+        from_fn(|i| coords[i] as f32 - t)
+    }
+}

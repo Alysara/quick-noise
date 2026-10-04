@@ -21,6 +21,7 @@ pub struct Simplex {}
 pub mod simplex {
     pub mod batch_2d;
     pub mod batch_3d;
+    pub mod grid_2d;
 }
 
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
