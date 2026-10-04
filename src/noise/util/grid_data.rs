@@ -78,7 +78,6 @@ impl<'a, const D: usize> GridData<'a, D> {
     }
 }
 
-
 pub(crate) struct GridDataLerp<'a, const D: usize> {
     pub total_size: usize,
     pub weight: f32,
@@ -97,7 +96,6 @@ pub(crate) enum Lerp {
     Cubic = 0,
     Quintic = 1,
 }
-
 
 impl Lerp {
     #[inline(always)]
@@ -202,15 +200,13 @@ pub(crate) struct SimplexGridData<const D: usize> {
 
 impl<const D: usize> SimplexGridData<D> {
     #[inline(always)]
-    pub fn new(
-        params: &GridNoiseParams<D>,
-    ) -> Self {
+    pub fn new(params: &GridNoiseParams<D>) -> Self {
         let total_size = params.grid_size.iter().product();
         let increment = from_fn(|i| params.frequency[i] * params.magnification);
         let origin = from_fn(|i| params.position[i] as f32 * increment[0]);
 
         // Skew the region's first sample to locate the enclosing lattice cell.
-        let s = (origin[0] + origin[1]) * SKEW_2D;
+        let s = origin.iter().sum::<f32>() * SKEW_2D;
         let grid_start = from_fn(|i| (origin[i] + s).floor() as i32);
 
         let octave_tiling = configure_tiling(params);
@@ -232,7 +228,6 @@ impl<const D: usize> SimplexGridData<D> {
         let s = coords.iter().sum::<f32>() * SKEW_2D;
         from_fn(|i| coords[i] + s)
     }
-
 
     /// True sample-space position `(x, y, ...)` of a lattice corner `(i, j, ...)`.
     #[inline(always)]
