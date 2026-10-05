@@ -5,22 +5,10 @@ use simply_simd::{Arch, Simd, enable_targets};
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{ Combiner, CombinerState };
 use crate::noise::util::grid_data::CellularGridData;
-use crate::noise::util::grid_helpers::{
-    Arena,
-    ArenaBuffer,
-    MaybeUninitSliceSimdExt,
-    maybe_tail_load,
-    maybe_tail_store,
-    pad_grid_size,
-    validate_grid_size,
-    validate_state_size,
-    simd_rem_euclid_i32,
-use crate::noise::combiners::{Combiner, CombinerState};
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
-use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::{
     Arena, ArenaBuffer, MaybeUninitSliceSimdExt, maybe_tail_load, maybe_tail_store, pad_grid_size,
-    validate_grid_size, validate_state_size,
+    validate_grid_size, validate_state_size, simd_rem_euclid_i32,
 };
 use crate::{Cellular, GridGenerator};
 

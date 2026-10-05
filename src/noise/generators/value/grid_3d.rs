@@ -14,7 +14,6 @@ use crate::noise::util::grid_helpers::{
     maybe_tail_store, pad_grid_size, validate_grid_size, validate_state_size,
 };
 use crate::noise::util::constants::{BYTE_SHUFFLE, VALUE_EXP_MASK, HASH_MASK, HASH_PRIME};
-use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::*;
 
 pub struct ValueGradients3D<'a> {
@@ -268,6 +267,49 @@ impl<'a> TrilerpBuffers<'a> {
             top_base_dif: arena.allocate(x_size),
             bottom_base_dif: arena.allocate(x_size),
         }
+    }
+}
+
+#[inline(always)]
+pub(super) fn fill_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
+    grid_data: &PVGridData<3>,
+    gradients: &mut ValueGradients3D<'a>,
+) {
+    let (grad_buffer, left, right) = if IS_FRONT {
+        (
+            &mut gradients.grad_buffers[0],
+            &mut gradients.blf,
+            &mut gradients.brf,
+        )
+    } else {
+        (
+            &mut gradients.grad_buffers[1],
+            &mut gradients.blb,
+            &mut gradients.brb,
+        )
+    };
+
+    let mut x_cur_index = 0;
+    for x_it in 0..grid_data.num_loops[0] {
+        // Find range of gradients to set.
+        let x_next_index = unsafe { grid_data.grid_indices[0].get_unchecked(x_it).assume_init() };
+        let mut amount = (x_next_index - x_cur_index) as isize;
+
+        unsafe {
+            let l = grad_buffer.get_unchecked(x_it).assume_init();
+            let r = grad_buffer.get_unchecked(x_it + 1).assume_init();
+
+            let mut index = x_cur_index as usize;
+            while amount > 0 {
+                left.write_simd(index, Simd::<_, A>::splat(l));
+                right.write_simd(index, Simd::<_, A>::splat(r));
+
+                amount -= Simd::<f32, A>::LANES as isize;
+                index += Simd::<f32, A>::LANES;
+            }
+        }
+
+        x_cur_index = x_next_index;
     }
 }
 

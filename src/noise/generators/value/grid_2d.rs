@@ -9,11 +9,10 @@ use crate::noise::combiners::{Combiner, CombinerState};
 use crate::noise::generators::Value;
 use crate::noise::util::grid_data::{PVGridData, Lerp};
 use crate::noise::util::grid_helpers::{
-    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt, assume_init_slice,
+    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt,
     maybe_tail_load, maybe_tail_store, pad_grid_size, validate_grid_size, validate_state_size,
 };
 use crate::noise::util::constants::{BYTE_SHUFFLE, VALUE_EXP_MASK, HASH_MASK, HASH_PRIME};
-use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::*;
 
 pub struct ValueGradients2D<'a> {

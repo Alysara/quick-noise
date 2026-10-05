@@ -393,13 +393,13 @@ mod tests {
         let seed = 123456789i64;
 
         for freq in [1.0 / 32.0, 1.0 / 8.0, 1.0 / 6.0, 1.0 / 4.0, 1.0 / 3.0, 1.0 / 2.0] {
-            check_reference(64, 64, seed, -5, 3, freq);
+            check_reference(64, 64, seed, -5.0, 3.0, freq);
         }
 
-        check_reference(32, 96, seed, -5, 3, 1.0 / 6.0);
+        check_reference(32, 96, seed, -5.0, 3.0, 1.0 / 6.0);
     }
 
-    fn check_reference(w: usize, h: usize, seed: i64, offset_x: i32, offset_y: i32, freq: f32) {
+    fn check_reference(w: usize, h: usize, seed: i64, offset_x: f32, offset_y: f32, freq: f32) {
         let grid = Grid::<2>::new(w, h).seed(seed).sample_position(offset_x, offset_y);
         let grid_seed = Random::mix_u64(seed as u64);
         let base_seed = Random::mix_u64_pair(grid_seed, 0xd5e7b3c94f8a1e6b);
@@ -411,8 +411,8 @@ mod tests {
         let mut max_diff = 0.0f32;
         for y in 0..h {
             for x in 0..w {
-                let px = (offset_x + (x as i32)) as f32;
-                let py = (offset_y + (y as i32)) as f32;
+                let px = (offset_x + (x as f32)) as f32;
+                let py = (offset_y + (y as f32)) as f32;
                 let reference = reference(octave_seed, px, py, freq);
                 let actual = result[y * w + x];
                 max_diff = max_diff.max((actual - reference).abs());

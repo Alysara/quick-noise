@@ -8,11 +8,10 @@ use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
 use crate::noise::util::grid_data::{PVGridData, Lerp};
 use crate::noise::util::grid_helpers::{
-    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt, assume_init_slice,
+    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt,
     maybe_tail_load, maybe_tail_store, pad_grid_size, validate_grid_size, validate_state_size,
 };
 use crate::noise::util::constants::{BYTE_SHUFFLE, HASH_PRIME};
-use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::*;
 use crate::{GridGenerator, Perlin};
 
@@ -233,6 +232,63 @@ pub(super) fn fill_gradients_3d<'a, A: Arch>(
             gradients.blb[0].write_simd_aligned(i, lb * cur_dist);
             gradients.brb[0].write_simd_aligned(i, rb.mul_sub(cur_dist, rb));
         }
+    }
+}
+
+#[inline(always)]
+pub(super) fn fill_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
+    grid_data: &PVGridData<3>,
+    gradients: &mut PerlinGradients3D<'a>,
+) {
+    let (grad_buffer, left, right) = if IS_FRONT {
+        (
+            &mut gradients.scratch[0],
+            &mut gradients.blf,
+            &mut gradients.brf,
+        )
+    } else {
+        (
+            &mut gradients.scratch[1],
+            &mut gradients.blb,
+            &mut gradients.brb,
+        )
+    };
+
+    let mut x_cur_index = 0;
+    for x_it in 0..grid_data.num_loops[0] {
+        // Find range of gradients to set.
+        let x_next_index = unsafe { grid_data.grid_indices[0].get_unchecked(x_it).assume_init() };
+        let mut amount = (x_next_index - x_cur_index) as isize;
+
+        unsafe {
+            let l = grad_buffer.get_unchecked(x_it).assume_init() as usize;
+            let r = grad_buffer.get_unchecked(x_it + 1).assume_init() as usize;
+
+            let l = GRADIENTS_3D.get_unchecked(l);
+            let r = GRADIENTS_3D.get_unchecked(r);
+
+            let lx = Simd::<f32, A>::splat(l[0]);
+            let ly = Simd::<f32, A>::splat(l[1]);
+            let lz = Simd::<f32, A>::splat(l[2]);
+            let rx = Simd::<f32, A>::splat(r[0]);
+            let ry = Simd::<f32, A>::splat(r[1]);
+            let rz = Simd::<f32, A>::splat(r[2]);
+
+            let mut index = x_cur_index as usize;
+            while amount > 0 {
+                left[0].write_simd(index, lx);
+                left[1].write_simd(index, ly);
+                left[2].write_simd(index, lz);
+                right[0].write_simd(index, rx);
+                right[1].write_simd(index, ry);
+                right[2].write_simd(index, rz);
+
+                amount -= Simd::<f32, A>::LANES as isize;
+                index += Simd::<f32, A>::LANES;
+            }
+        }
+
+        x_cur_index = x_next_index;
     }
 }
 
