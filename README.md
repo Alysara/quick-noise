@@ -80,27 +80,26 @@ making it easier to have multiple noise maps with the same primary seed.
 use quick_noise::{Grid, Fbm, Perlin};
 
 // Creates an anchor into a region of sample space.
-let grid = Grid::<2>::new(1000, 1000) // Specify a 2D 1000x1000 grid.
+let grid = Grid::<2>::new(1000, 1000); // Specify a 2D 1000x1000 grid.
     
 // Creates 1,000,000 samples all at once very quickly.
 let results: Vec<f32> = grid.builder::<Fbm, Perlin>()
     .octaves(6)      // Number of noise passes.
     .frequency(0.01) // How fast the noise changes across sample space.
-    .build()
+    .build();
 ```
 
 Each builder has sensible defaults allowing you to be as simple or customized as
 you like:
 
 ```rust
-
 use quick_noise::{Grid, Fbm, Perlin};
 
 let grid = Grid::<2>::new(32, 32)
     .grid_position(0.0, 0.0) // Position of the grid region in sample space.
     .seed(102);              // Seed for deterministic random results.
 
-let result = [f32; 1024]
+let mut result = [0.0; 1024];
 
 // FBM Grid noise with all parameters.
 let noise = grid.builder::<Fbm, Perlin>()
@@ -115,7 +114,6 @@ let noise = grid.builder::<Fbm, Perlin>()
     .initialize(true) // Setting to false adds noise to current values.
     .finalize(true)   // Some combiners have a finalization stage.
     .fill(result.as_mut_slice());
-}
 ```
 
 Currently, only Perlin and Value is supported for grid noise. For octave sequences more complicated than FBM noise,
