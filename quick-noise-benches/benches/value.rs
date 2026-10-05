@@ -49,6 +49,53 @@ fn value_2d_octaves_benchmark(c: &mut Criterion) {
         });
     }
 
+    // ---- fastnoise2 ----
+    {
+        use fastnoise2::generator::prelude::*;
+        let node = value().fbm(0.5, 0.0, OCTAVES_2D as i32, 2.0).build();
+
+        let mut result = vec![0.0f32; GRID_2D_AREA];
+        group.bench_function("fastnoise2", |b| {
+            b.iter(|| {
+                node.gen_uniform_grid_2d(
+                    &mut result,
+                    0.0,
+                    0.0,
+                    GRID_2D as i32,
+                    GRID_2D as i32,
+                    BASE_FREQ_2D as f32,
+                    BASE_FREQ_2D as f32,
+                    1337,
+                );
+                black_box(&result);
+            });
+        });
+    }
+
+    // ---- fastnoise-lite ----
+    {
+        use fastnoise_lite::{FastNoiseLite, FractalType, NoiseType};
+        let mut noise = FastNoiseLite::with_seed(10);
+        noise.set_noise_type(Some(NoiseType::Value));
+        noise.set_frequency(Some(BASE_FREQ_2D as f32));
+        noise.set_fractal_type(Some(FractalType::FBm));
+        noise.set_fractal_octaves(Some(OCTAVES_2D as i32));
+        noise.set_fractal_lacunarity(Some(2.0));
+        noise.set_fractal_gain(Some(0.5));
+
+        let mut result = vec![0.0f32; GRID_2D_AREA];
+        group.bench_function("fastnoise-lite", |b| {
+            b.iter(|| {
+                for y in 0..GRID_2D {
+                    for x in 0..GRID_2D {
+                        result[y * GRID_2D + x] = noise.get_noise_2d(x as f32, y as f32);
+                    }
+                }
+                black_box(&result);
+            });
+        });
+    }
+
     // ---- noise-rs ----
     {
         use noise::{Fbm, MultiFractal, NoiseFn, Value};
@@ -71,23 +118,6 @@ fn value_2d_octaves_benchmark(c: &mut Criterion) {
         });
     }
 
-    // ---- libnoise ----
-    {
-        use libnoise::prelude::*;
-        let generator = Source::value(0).fbm(OCTAVES_2D as u32, BASE_FREQ_2D, 2.0, 0.5);
-
-        let mut result = vec![0.0f64; GRID_2D_AREA];
-        group.bench_function("libnoise", |b| {
-            b.iter(|| {
-                for y in 0..GRID_2D {
-                    for x in 0..GRID_2D {
-                        result[y * GRID_2D + x] = generator.sample([x as f64, y as f64]);
-                    }
-                }
-                black_box(&result);
-            });
-        });
-    }
 
     // ---- noiz ----
     {
@@ -127,24 +157,19 @@ fn value_2d_octaves_benchmark(c: &mut Criterion) {
         });
     }
 
-    // ---- fastnoise2 ----
+    // ---- libnoise ----
     {
-        use fastnoise2::generator::prelude::*;
-        let node = value().fbm(0.5, 0.0, OCTAVES_2D as i32, 2.0).build();
+        use libnoise::prelude::*;
+        let generator = Source::value(0).fbm(OCTAVES_2D as u32, BASE_FREQ_2D, 2.0, 0.5);
 
-        let mut result = vec![0.0f32; GRID_2D_AREA];
-        group.bench_function("fastnoise2", |b| {
+        let mut result = vec![0.0f64; GRID_2D_AREA];
+        group.bench_function("libnoise", |b| {
             b.iter(|| {
-                node.gen_uniform_grid_2d(
-                    &mut result,
-                    0.0,
-                    0.0,
-                    GRID_2D as i32,
-                    GRID_2D as i32,
-                    BASE_FREQ_2D as f32,
-                    BASE_FREQ_2D as f32,
-                    1337,
-                );
+                for y in 0..GRID_2D {
+                    for x in 0..GRID_2D {
+                        result[y * GRID_2D + x] = generator.sample([x as f64, y as f64]);
+                    }
+                }
                 black_box(&result);
             });
         });
@@ -204,6 +229,60 @@ fn value_2d_octaves_benchmark(c: &mut Criterion) {
         });
     }
 
+    // ---- fastnoise2 ----
+    {
+        use fastnoise2::generator::prelude::*;
+        let node = value().fbm(0.5, 0.0, OCTAVES_3D as i32, 2.0).build();
+
+        let mut result = vec![0.0f32; GRID_3D_VOLUME];
+        group.bench_function("fastnoise2", |b| {
+            b.iter(|| {
+                node.gen_uniform_grid_3d(
+                    &mut result,
+                    0.0,
+                    0.0,
+                    0.0,
+                    GRID_3D as i32,
+                    GRID_3D as i32,
+                    GRID_3D as i32,
+                    BASE_FREQ_3D as f32,
+                    BASE_FREQ_3D as f32,
+                    BASE_FREQ_3D as f32,
+                    1337,
+                );
+                black_box(&result);
+            });
+        });
+    }
+
+    // ---- fastnoise-lite ----
+    {
+        use fastnoise_lite::{FastNoiseLite, FractalType, NoiseType};
+        let mut noise = FastNoiseLite::with_seed(10);
+        noise.set_noise_type(Some(NoiseType::Value));
+        noise.set_frequency(Some(BASE_FREQ_3D as f32));
+        noise.set_fractal_type(Some(FractalType::FBm));
+        noise.set_fractal_octaves(Some(OCTAVES_3D as i32));
+        noise.set_fractal_lacunarity(Some(2.0));
+        noise.set_fractal_gain(Some(0.5));
+
+        let mut result = vec![0.0f32; GRID_3D_VOLUME];
+        group.bench_function("fastnoise-lite", |b| {
+            b.iter(|| {
+                for z in 0..GRID_3D {
+                    for y in 0..GRID_3D {
+                        for x in 0..GRID_3D {
+                            result[z * GRID_3D * GRID_3D + y * GRID_3D + x] =
+                                noise.get_noise_3d(x as f32, y as f32, z as f32);
+                        }
+                    }
+                }
+                black_box(&result);
+            });
+        });
+    }
+
+
     // ---- noise-rs ----
     {
         use noise::{Fbm, MultiFractal, NoiseFn, Value};
@@ -221,27 +300,6 @@ fn value_2d_octaves_benchmark(c: &mut Criterion) {
                         for x in 0..GRID_3D {
                             result[z * GRID_3D * GRID_3D + y * GRID_3D + x] =
                                 fbm.get([x as f64, y as f64, z as f64]);
-                        }
-                    }
-                }
-                black_box(&result);
-            });
-        });
-    }
-
-    // ---- libnoise ----
-    {
-        use libnoise::prelude::*;
-        let generator = Source::value(0).fbm(OCTAVES_3D as u32, BASE_FREQ_3D, 2.0, 0.5);
-
-        let mut result = vec![0.0f64; GRID_3D_VOLUME];
-        group.bench_function("libnoise", |b| {
-            b.iter(|| {
-                for z in 0..GRID_3D {
-                    for y in 0..GRID_3D {
-                        for x in 0..GRID_3D {
-                            result[z * GRID_3D * GRID_3D + y * GRID_3D + x] =
-                                generator.sample([x as f64, y as f64, z as f64]);
                         }
                     }
                 }
@@ -291,27 +349,22 @@ fn value_2d_octaves_benchmark(c: &mut Criterion) {
         });
     }
 
-    // ---- fastnoise2 ----
+    // ---- libnoise ----
     {
-        use fastnoise2::generator::prelude::*;
-        let node = value().fbm(0.5, 0.0, OCTAVES_3D as i32, 2.0).build();
+        use libnoise::prelude::*;
+        let generator = Source::value(0).fbm(OCTAVES_3D as u32, BASE_FREQ_3D, 2.0, 0.5);
 
-        let mut result = vec![0.0f32; GRID_3D_VOLUME];
-        group.bench_function("fastnoise2", |b| {
+        let mut result = vec![0.0f64; GRID_3D_VOLUME];
+        group.bench_function("libnoise", |b| {
             b.iter(|| {
-                node.gen_uniform_grid_3d(
-                    &mut result,
-                    0.0,
-                    0.0,
-                    0.0,
-                    GRID_3D as i32,
-                    GRID_3D as i32,
-                    GRID_3D as i32,
-                    BASE_FREQ_3D as f32,
-                    BASE_FREQ_3D as f32,
-                    BASE_FREQ_3D as f32,
-                    1337,
-                );
+                for z in 0..GRID_3D {
+                    for y in 0..GRID_3D {
+                        for x in 0..GRID_3D {
+                            result[z * GRID_3D * GRID_3D + y * GRID_3D + x] =
+                                generator.sample([x as f64, y as f64, z as f64]);
+                        }
+                    }
+                }
                 black_box(&result);
             });
         });

@@ -13,27 +13,29 @@ Blazingly fast SIMD procedural noise library for batch and uniform grid sampling
 Time taken to produce 3 octaves of FBM noise for 1024x1024 (1,048,576) samples.
 | Library              | Perlin  |  Value  | Simplex | Cellular |
 |----------------------|---------|---------|---------|----------|
-| quick-noise (grid)   | 0.79 ms | 0.66 ms |    X    | 0.85 ms  |
-| quick-noise (batch)  | 3.76 ms | 3.32 ms | 4.89 ms | 6.01 ms  |
-| fastnoise2           | 4.51 ms | 3.73 ms | 5.09 ms | 16.2 ms  |
-| simd-noise           |    X    |    X    | 7.86 ms | 11.3 ms  |
-| noise-rs             | 26.4 ms | 24.2 ms | 42.4 ms | 86.0 ms  |
-| noiz                 | 25.8 ms | 20.6 ms | 35.2 ms | 74.0 ms  |
-| libnoise             | 27.2 ms | 22.9 ms | 50.7 ms | 126 ms   |
-| noise-functions      | 7.83 ms | 4.59 ms | 34.5 ms | 41.6 ms  |
+| quick-noise (grid)   | 0.82 ms | 0.60 ms |    X    | 0.85 ms  |
+| quick-noise (batch)  | 3.64 ms | 3.39 ms | 5.09 ms | 6.01 ms  |
+| fastnoise2           | 4.30 ms | 3.67 ms | 5.15 ms | 16.2 ms  |
+| fastnoise-lite       | 28.4 ms | 27.4 ms | 35.6 ms | 87.7 ms  |
+| simd-noise           |    X    |    X    | 7.79 ms | 11.3 ms  |
+| noise-rs             | 26.2 ms | 25.0 ms | 41.5 ms | 86.0 ms  |
+| noiz                 | 25.4 ms | 20.9 ms | 36.3 ms | 74.0 ms  |
+| libnoise             | 26.9 ms | 23.5 ms | 52.1 ms | 126 ms   |
+| noise-functions      | 7.70 ms | 4.69 ms | 35.2 ms | 41.6 ms  |
 
 ### 3D Noise
 Time taken to produce 3 octaves of FBM noise for 128x128x128 (2,097,152) samples.
 | Library              | Perlin  |  Value  | Simplex | Cellular |
 |----------------------|---------|---------|---------|----------|
-| quick-noise (grid)   | 1.05 ms | 0.81 ms |    X    |    X     |
-| quick-noise (batch)  | 21.6 ms | 11.2 ms | 20.4 ms | 34.6 ms  |
-| fastnoise2           | 23.3 ms | 11.8 ms | 20.0 ms | 137 ms   |
+| quick-noise (grid)   | 0.73 ms | 0.65 ms |    X    |    X     |
+| quick-noise (batch)  | 20.6 ms | 11.3 ms | 20.4 ms | 34.6 ms  |
+| fastnoise2           | 22.4 ms | 11.9 ms | 20.0 ms | 137 ms   |
+| fastnoise-lite       | 102 ms  | 83.7 ms | 133 ms  | 545 ms   |
 | simd-noise           |    X    |    X    | 22.0 ms | 78.0 ms  |
-| noise-rs             | 82.7 ms | 160 ms  | 153 ms  | 328 ms   |
-| noiz                 | 104 ms  | 83.8 ms | 132 ms  | 390 ms   |
-| libnoise             | 102 ms  | 73.1 ms | 155 ms  | 406 ms   |
-| noise-functions      | 85.7 ms | 42.9 ms | 267 ms  | 249 ms   |
+| noise-rs             | 80.5 ms | 167 ms  | 153 ms  | 328 ms   |
+| noiz                 | 102 ms  | 85.2 ms | 132 ms  | 390 ms   |
+| libnoise             | 100 ms  | 74.8 ms | 155 ms  | 406 ms   |
+| noise-functions      | 83.6 ms | 43.7 ms | 267 ms  | 249 ms   |
 
 * X signifies the noise type is not supported or readily exposed
 * Grid path performance degrades for very high frequencies, and cannot support
@@ -478,24 +480,24 @@ over a 64x64 grid (2D) and 32x32x32 grid (3D).
 ### Perlin
 | Frequency | 2D AVX2  | 3D AVX2  | 2D AVX512 | 3D AVX512 |
 |-----------|----------|----------|-----------|-----------|
-| 1 / 64    | 15.5 B/s | 13.9 B/s | 35.0 B/s  | 15.9 B/s  |
-| 1 / 48    | 13.5 B/s | 13.8 B/s | 29.4 B/s  | 16.0 B/s  |
-| 1 / 32    | 13.5 B/s | 13.8 B/s | 29.5 B/s  | 16.0 B/s  |
-| 1 / 24    | 12.0 B/s | 11.5 B/s | 24.2 B/s  | 13.4 B/s  |
-| 1 / 16    | 10.8 B/s | 11.9 B/s | 22.1 B/s  | 13.7 B/s  |
-| 1 / 8     | 7.97 B/s | 9.17 B/s | 12.9 B/s  | 9.47 B/s  |
-| 1 / 4     | 4.11 B/s | 3.76 B/s | 5.35 B/s  | 4.37 B/s  |
+| 1 / 64    | 16.2 B/s | 15.6 B/s | 35.0 B/s  | 15.9 B/s  |
+| 1 / 48    | 14.3 B/s | 15.6 B/s | 29.4 B/s  | 16.0 B/s  |
+| 1 / 32    | 14.1 B/s | 15.6 B/s | 29.5 B/s  | 16.0 B/s  |
+| 1 / 24    | 12.6 B/s | 12.9 B/s | 24.2 B/s  | 13.4 B/s  |
+| 1 / 16    | 11.5 B/s | 13.3 B/s | 22.1 B/s  | 13.7 B/s  |
+| 1 / 8     | 8.55 B/s | 9.64 B/s | 12.9 B/s  | 9.47 B/s  |
+| 1 / 4     | 4.52 B/s | 3.96 B/s | 5.35 B/s  | 4.37 B/s  |
 
 ### Value
 | Frequency | 2D AVX2  | 3D AVX2  | 2D AVX512 | 3D AVX512 |
 |-----------|----------|----------|-----------|-----------|
-| 1 / 64    | 23.9 B/s | 16.0 B/s | 20.8 B/s  | 32.9 B/s  |
-| 1 / 48    | 20.9 B/s | 16.0 B/s | 18.5 B/s  | 33.0 B/s  |
-| 1 / 32    | 20.9 B/s | 16.0 B/s | 18.3 B/s  | 32.8 B/s  |
-| 1 / 24    | 18.6 B/s | 15.1 B/s | 16.2 B/s  | 26.5 B/s  |
-| 1 / 16    | 16.9 B/s | 14.7 B/s | 15.8 B/s  | 26.7 B/s  |
-| 1 / 8     | 12.8 B/s | 13.4 B/s | 14.2 B/s  | 17.5 B/s  |
-| 1 / 4     | 7.03 B/s | 7.39 B/s | 7.76 B/s  | 8.51 B/s  |
+| 1 / 64    | 28.0 B/s | 18.2 B/s | 20.8 B/s  | 32.9 B/s  |
+| 1 / 48    | 25.0 B/s | 18.0 B/s | 18.5 B/s  | 33.0 B/s  |
+| 1 / 32    | 25.2 B/s | 18.2 B/s | 18.3 B/s  | 32.8 B/s  |
+| 1 / 24    | 22.1 B/s | 16.7 B/s | 16.2 B/s  | 26.5 B/s  |
+| 1 / 16    | 20.1 B/s | 16.8 B/s | 15.8 B/s  | 26.7 B/s  |
+| 1 / 8     | 14.6 B/s | 15.0 B/s | 14.2 B/s  | 17.5 B/s  |
+| 1 / 4     | 7.77 B/s | 7.87 B/s | 7.76 B/s  | 8.51 B/s  |
 
 ## Batch Noise
 
@@ -504,23 +506,23 @@ techniques such as domain warping, but at the cost of performance. Results are m
 
 |   Perlin    | 2D AVX2 | 3D AVX2 | 2D AVX512 | 3D AVX512 |
 |-------------|---------|---------|-----------|-----------|
-| quick-noise | 713 M/s | 244 M/s | 1,810 M/s | 871 M/s   |
-| FastNoise2  | 553 M/s | 238 M/s | 942 M/s   | 678 M/s   |
+| quick-noise | 769 M/s | 264 M/s | 1,810 M/s | 871 M/s   |
+| FastNoise2  | 598 M/s | 253 M/s | 942 M/s   | 678 M/s   |
 
 |    Value    | 2D AVX2   | 3D AVX2 | 2D AVX512 | 3D AVX512 |
 |-------------|-----------|---------|-----------|-----------|
-| quick-noise | 746 M/s   | 423 M/s | 2,265 M/s | 1,386 M/s |
-| FastNoise2  | 644 M/s   | 339 M/s | 1,193 M/s | 808 M/s   |
+| quick-noise | 824 M/s   | 459 M/s | 2,265 M/s | 1,386 M/s |
+| FastNoise2  | 694 M/s   | 456 M/s | 1,193 M/s | 808 M/s   |
 
 |   Simplex   | 2D AVX2 | 3D AVX2 | 2D AVX512 | 3D AVX512 |
 |-------------|---------|---------|-----------|-----------|
-| quick-noise | 526 M/s | 250 M/s | 1,282 M/s | 816 M/s   |
-| FastNoise2  | 493 M/s | 272 M/s | 910 M/s   | 640 M/s   |
+| quick-noise | 577 M/s | 271 M/s | 1,282 M/s | 816 M/s   |
+| FastNoise2  | 531 M/s | 290 M/s | 910 M/s   | 640 M/s   |
 
 |   Cellular  | 2D AVX2 | 3D AVX2  | 2D AVX512 | 3D AVX512 |
 |-------------|---------|----------|-----------|-----------|
-| quick-noise | 474 M/s | 142 M/s  | 1,196 M/s | 416 M/s   |
-| FastNoise2  | 176 M/s | 54.8 M/s | 397 M/s   | 149 M/s   |
+| quick-noise | 518 M/s | 176 M/s  | 1,196 M/s | 416 M/s   |
+| FastNoise2  | 188 M/s | 57.1 M/s | 397 M/s   | 149 M/s   |
 
 # Running
 
@@ -535,6 +537,11 @@ similar performance.
 Criterion benches can be run with:
 
 > cargo bench -p quick-noise-benches
+
+If you use Linux, it's recommended to run with `taskset -c 0` to ensure
+the same cpu core is used across tests.
+
+> taskset -c 0 cargo bench -p quick-noise-benches
 
 Test suite can be run with:
 
