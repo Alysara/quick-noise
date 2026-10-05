@@ -8,8 +8,12 @@ use crate::GridGenerator;
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
 use crate::noise::generators::Value;
+use crate::noise::util::grid_data::{PVGridData, Lerp};
+use crate::noise::util::grid_helpers::{
+    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt, maybe_tail_load,
+    maybe_tail_store, pad_grid_size, validate_grid_size, validate_state_size,
+};
 use crate::noise::util::constants::{BYTE_SHUFFLE, VALUE_EXP_MASK, HASH_MASK, HASH_PRIME};
-use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::*;
 
 pub struct ValueGradients3D<'a> {
@@ -73,7 +77,7 @@ impl GridGenerator<3> for Value {
         // Allocation setup.
         let num_blocks = TrilerpExecuter::<A, C, INIT, FINAL>::MAX_BLOCKS;
         let bilerp_config = InterpolationConfig::new(num_blocks, params.grid_size[0]);
-        let grid_data = GridData::new::<A, LERP>(&params, &mut data_arena, &padded_size);
+        let grid_data = PVGridData::new::<A, LERP>(&params, &mut data_arena, &padded_size);
         let mut trilerp_buffers = TrilerpBuffers::new(&mut trilerp_arena, padded_size[0]);
         let mut gradients = ValueGradients3D::new(&mut arena, padded_size[0]);
 
@@ -120,7 +124,7 @@ impl GridGenerator<3> for Value {
 #[inline(always)]
 pub(super) fn fill_gradients_3d<'a, A: Arch>(
     params: &GridNoiseParams<3>,
-    grid_data: &GridData<3>,
+    grid_data: &PVGridData<3>,
     gradients: &mut ValueGradients3D<'a>,
     y_it: usize,
     z_it: usize,
@@ -205,8 +209,8 @@ pub(super) fn fill_gradients_3d<'a, A: Arch>(
 }
 
 #[inline(always)]
-pub(super) fn fill_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
-    grid_data: &GridData<3>,
+pub(super) fn grid_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
+    grid_data: &PVGridData<3>,
     gradients: &mut ValueGradients3D<'a>,
 ) {
     let (grad_buffer, left, right) = if IS_FRONT {
@@ -266,12 +270,55 @@ impl<'a> TrilerpBuffers<'a> {
     }
 }
 
+#[inline(always)]
+pub(super) fn fill_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
+    grid_data: &PVGridData<3>,
+    gradients: &mut ValueGradients3D<'a>,
+) {
+    let (grad_buffer, left, right) = if IS_FRONT {
+        (
+            &mut gradients.grad_buffers[0],
+            &mut gradients.blf,
+            &mut gradients.brf,
+        )
+    } else {
+        (
+            &mut gradients.grad_buffers[1],
+            &mut gradients.blb,
+            &mut gradients.brb,
+        )
+    };
+
+    let mut x_cur_index = 0;
+    for x_it in 0..grid_data.num_loops[0] {
+        // Find range of gradients to set.
+        let x_next_index = unsafe { grid_data.grid_indices[0].get_unchecked(x_it).assume_init() };
+        let mut amount = (x_next_index - x_cur_index) as isize;
+
+        unsafe {
+            let l = grad_buffer.get_unchecked(x_it).assume_init();
+            let r = grad_buffer.get_unchecked(x_it + 1).assume_init();
+
+            let mut index = x_cur_index as usize;
+            while amount > 0 {
+                left.write_simd(index, Simd::<_, A>::splat(l));
+                right.write_simd(index, Simd::<_, A>::splat(r));
+
+                amount -= Simd::<f32, A>::LANES as isize;
+                index += Simd::<f32, A>::LANES;
+            }
+        }
+
+        x_cur_index = x_next_index;
+    }
+}
+
 /// Handles interpolation execution state and fills
 /// the dst slice with interpolated values from gradient dot produtcts.
 pub(crate) struct TrilerpExecuter<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool> {
     config: &'a InterpolationConfig<A>,
     fractal_config: &'a C::Config,
-    grid_data: &'a GridData<'a, 3>,
+    grid_data: &'a PVGridData<'a, 3>,
     gradients: &'a ValueGradients3D<'a>,
     y_range: Range<usize>,
     z_range: Range<usize>,
@@ -286,7 +333,7 @@ pub(super) fn trilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
     buffers: &mut TrilerpBuffers,
     config: &InterpolationConfig<A>,
     fractal_config: &C::Config,
-    grid_data: &GridData<3>,
+    grid_data: &PVGridData<3>,
     gradients: &ValueGradients3D,
     ranges: (Range<usize>, Range<usize>),
     output: (&mut [f32], &mut [f32]),

@@ -38,8 +38,10 @@ serde_arrays = { version = "0.2", optional = true }
 paste = "1.0.15"
 
 [features]
+default = []
 image = ["dep:image"]
 serde = ["dep:serde", "dep:serde_arrays"]
+split-stats = []
 
 [[example]]
 name = "basic"

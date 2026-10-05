@@ -1,6 +1,6 @@
 use std::f32::consts::SQRT_2;
 
-use simply_simd::{Arch, Simd, enable_targets};
+use simply_simd::{ Arch, Simd, enable_targets };
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Simplex;

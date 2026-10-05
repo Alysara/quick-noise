@@ -24,6 +24,7 @@ pub struct Simplex {}
 pub mod simplex {
     pub mod batch_2d;
     pub mod batch_3d;
+    pub mod grid_2d;
 }
 
 /// Cell-like noise created by the distance between each sample and its nearest node.
