@@ -77,35 +77,44 @@ Grid noise is called through a grid region. Each noise call takes into account b
 making it easier to have multiple noise maps with the same primary seed.
 
 ```rust
-#[cfg(feature = "image")]
-{
-    use quick_noise::{Grid, Fbm, Perlin};
-    use quick_noise::emit::NoiseImageExt;
+use quick_noise::{Grid, Fbm, Perlin};
+
+// Creates an anchor into a region of sample space.
+let grid = Grid::<2>::new(1000, 1000) // Specify a 2D 1000x1000 grid.
     
-    // Creates an anchor into a region of sample space.
-    let grid = Grid::<2>::new(200, 200) // Specify a 2D 200x200 grid.
-        .grid_position(0.0, 0.0)
-        .seed(102);
-        
-    grid.builder::<Fbm, Perlin>()
-        .octaves(6)
-        .frequency(0.01)
-        .into_iter()
-        .to_grayscale_image(200, 200, "noise_images/perlin_batch_2d.png");
-        
-    // FBM Grid noise with all parameters.
-    let noise = grid.builder::<Fbm, Perlin>()
-        .seed(0)
-        .octaves(1)
-        .frequency(0.03125)
-        .lacunarity(2.0)
-        .persistence(0.5)
-        .amplitude(1.0)
-        .normalization(true)
-        .scaling(1.0, 1.0)
-        .initialize(true) // Setting to false adds noise to current values.
-        .finalize(true) // Some combiners have a finalization stage.
-        .build();
+// Creates 1,000,000 samples all at once very quickly.
+let results: Vec<f32> = grid.builder::<Fbm, Perlin>()
+    .octaves(6)      // Number of noise passes.
+    .frequency(0.01) // How fast the noise changes across sample space.
+    .build()
+```
+
+Each builder has sensible defaults allowing you to be as simple or customized as
+you like:
+
+```rust
+
+use quick_noise::{Grid, Fbm, Perlin};
+
+let grid = Grid::<2>::new(32, 32)
+    .grid_position(0.0, 0.0) // Position of the grid region in sample space.
+    .seed(102);              // Seed for deterministic random results.
+
+let result = [f32; 1024]
+
+// FBM Grid noise with all parameters.
+let noise = grid.builder::<Fbm, Perlin>()
+    .seed(0)
+    .octaves(1)
+    .frequency(0.03125)
+    .lacunarity(2.0)
+    .persistence(0.5)
+    .amplitude(1.0)
+    .normalization(true)
+    .scaling(1.0, 1.0)
+    .initialize(true) // Setting to false adds noise to current values.
+    .finalize(true)   // Some combiners have a finalization stage.
+    .fill(result.as_mut_slice());
 }
 ```
 
@@ -504,20 +513,20 @@ over a 64x64 grid (2D) and 32x32x32 grid (3D).
 Batch noise processing is much more flexible than uniform grid, allowing for any arbitrary input and enabling
 techniques such as domain warping, but at the cost of performance. Results are measured in millions of points per second.
 
-|   Perlin    |  2D AVX2  | 3D AVX2 | 2D AVX512 | 3D AVX512 |
-|-------------|-----------|---------|-----------|-----------|
-| quick-noise | 1,097 M/s | 328 M/s | 1,810 M/s | 871 M/s   |
-| FastNoise2  | 586 M/s   | 248 M/s | 942 M/s   | 678 M/s   |
+|   Perlin    |  2D AVX2  | 3D AVX2  | 2D AVX512 | 3D AVX512 |
+|-------------|-----------|----------|-----------|-----------|
+| quick-noise | 1,097 M/s | 328 M/s  | 1,810 M/s | 871 M/s   |
+| FastNoise2  | 586 M/s   | 248 M/s  | 942 M/s   | 678 M/s   |
 
-|    Value    |  2D AVX2  | 3D AVX2 | 2D AVX512 | 3D AVX512 |
-|-------------|-----------|---------|-----------|-----------|
-| quick-noise | 1,224 M/s | 641 M/s | 2,265 M/s | 1,386 M/s |
-| FastNoise2  | 679 M/s   | 440 M/s | 1,193 M/s | 808 M/s   |
+|    Value    |  2D AVX2  | 3D AVX2  | 2D AVX512 | 3D AVX512 |
+|-------------|-----------|----------|-----------|-----------|
+| quick-noise | 1,224 M/s | 641 M/s  | 2,265 M/s | 1,386 M/s |
+| FastNoise2  | 679 M/s   | 440 M/s  | 1,193 M/s | 808 M/s   |
 
-|   Simplex   |  2D AVX2  | 3D AVX2 | 2D AVX512 | 3D AVX512 |
-|-------------|-----------|---------|-----------|-----------|
-| quick-noise | 764 M/s   | 325 M/s | 1,282 M/s | 816 M/s   |
-| FastNoise2  | 514 M/s   | 284 M/s | 910 M/s   | 640 M/s   |
+|   Simplex   |  2D AVX2  | 3D AVX2  | 2D AVX512 | 3D AVX512 |
+|-------------|-----------|----------|-----------|-----------|
+| quick-noise | 764 M/s   | 325 M/s  | 1,282 M/s | 816 M/s   |
+| FastNoise2  | 514 M/s   | 284 M/s  | 910 M/s   | 640 M/s   |
 
 |   Cellular  |  2D AVX2  | 3D AVX2  | 2D AVX512 | 3D AVX512 |
 |-------------|-----------|----------|-----------|-----------|
