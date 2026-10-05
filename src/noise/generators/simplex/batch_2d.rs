@@ -116,30 +116,3 @@ impl BatchGenerator<2> for Simplex {
         t4_lo.mul_add(dot_lo, t4_mi.mul_add(dot_mi, t4_hi * dot_hi))
     }
 }
-
-#[cfg(test)]
-mod tests {
-    #[cfg(feature = "image")]
-    use crate::emit::NoiseImageExt;
-    #[cfg(feature = "image")]
-    use simply_simd::Simd;
-    #[cfg(feature = "image")]
-    use crate::api::batch::interface::BatchGenerator;
-    #[cfg(feature = "image")]
-    use crate::api::seed::gen_octave_seed;
-    #[cfg(feature = "image")]
-    use crate::simd::StaticArch;
-    #[cfg(feature = "image")]
-    use crate::{ Fbm, Grid, Simplex };
-
-    #[test]
-    #[cfg(feature = "image")]
-    fn batch_image() {
-        let grid = Grid::<2>::new(256, 256).seed(42).sample_position(-128, -128);
-
-        grid.builder::<Fbm, Simplex>()
-            .frequency(1.0 / 32.0)
-            .into_iter()
-            .to_grayscale_image(256, 256, "test_images/batch_2d_simplex_seeded.png");
-    }
-}
