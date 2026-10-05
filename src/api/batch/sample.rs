@@ -49,7 +49,8 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
         let persistence = Simd::splat(noise_config.persistence);
 
         #[allow(clippy::too_many_arguments)]
-        #[enable_targets(A)]
+        // #[enable_targets(A)]
+        #[inline(always)]
         fn process_batch<const D: usize, C: Combiner, G: BatchGenerator<D>, A: Arch>(
             inputs: [Simd<f32, A>; D],
             octaves: usize,

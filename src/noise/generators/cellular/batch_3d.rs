@@ -4,8 +4,8 @@ use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Cellular;
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 
-#[enable_targets(A)]
 impl BatchGenerator<3> for Cellular {
+    #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 3],

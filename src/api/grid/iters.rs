@@ -80,10 +80,11 @@ impl<A: Arch> RowIter<A> {
     }
 }
 
-#[enable_targets(A)]
+// #[enable_targets(A)]
 impl<A: Arch> Iterator for RowIter<A> {
     type Item = Simd<f32, A>;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Simd<f32, A>> {
         // Scalar case.
         if self.row_size < Simd::<f32, A>::LANES {
@@ -183,7 +184,7 @@ impl<A: Arch> SliceIter<A> {
     }
 }
 
-#[enable_targets(A)]
+// #[enable_targets(A)]
 impl<A: Arch> Iterator for SliceIter<A> {
     type Item = Simd<f32, A>;
 

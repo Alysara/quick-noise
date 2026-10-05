@@ -4,8 +4,8 @@ use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Perlin;
 use crate::noise::util::constants::{BYTE_SHUFFLE, GRAD_TABLE, HASH_PRIME, X_GRAD_ENCODING, Y_GRAD_ENCODING, Z_GRAD_ENCODING};
 
-#[enable_targets(A)]
 impl BatchGenerator<3> for Perlin {
+    #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 3],

@@ -3,14 +3,24 @@ use quick_noise::{Billow, Combiner, Fbm, Grid, Octave, Perlin, PingPong, PingPon
 use simply_simd::{ScalarArch, Simd, StaticArch};
 #[cfg(feature = "image")]
 fn main() {
+    use quick_noise::BatchNoise;
+
     let debug_grid = Grid::<2>::new(243, 243);
 
-    debug_grid
-        .builder::<Billow, Perlin>()
-        .octaves(4)
-        .frequency(1.0 / 16.0)
-        .into_iter()
-        .to_grayscale_image(243, 243, "noise_images/perlin_debug_2d.png");
+    // debug_grid
+    //     .builder::<Billow, Perlin>()
+    //     .octaves(4)
+    //     .frequency(1.0 / 16.0)
+    //     .into_iter()
+    //     .to_grayscale_image(243, 243, "noise_images/perlin_debug_2d.png");
+
+    let mut result = vec![0.0; 243 * 243];
+    BatchNoise::<2, Fbm, Perlin>::builder(debug_grid.x_iter(), debug_grid.y_iter())
+        .octaves(1)
+        .frequency(1.0 / 32.0)
+        .fill(result.as_mut_slice());
+
+    std::hint::black_box(&result);
 
     // let cfg = PingPongConfig { strength: 2.0 };
     // for v in [-0.69f32, -0.5, 0.0, 0.5, 0.69] {

@@ -28,8 +28,9 @@ pub const Y_GRADIENTS_2D: [f32; 8] = [
     -1.0000000000000000,
 ];
 
-#[enable_targets(A)]
+// #[enable_targets(A)]
 impl BatchGenerator<2> for Perlin {
+    #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 2],

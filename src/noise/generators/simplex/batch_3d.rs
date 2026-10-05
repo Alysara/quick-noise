@@ -9,8 +9,8 @@ use crate::noise::util::constants::{
 const SKEW_3D: f32 = 1.0 / 3.0;
 const UNSKEW_3D: f32 = 1.0 / 6.0;
 
-#[enable_targets(A)]
 impl BatchGenerator<3> for Simplex {
+    #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 3],
