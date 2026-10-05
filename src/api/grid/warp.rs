@@ -1,9 +1,8 @@
 use std::iter::zip;
 use std::marker::PhantomData;
 
-use itertools::multizip;
-
 use crate::api::batch::interface::DimIter;
+use crate::api::batch::multizip;
 use crate::simd::{Arch, Simd};
 use crate::{BatchGenerator, BatchNoiseBuilder, Combiner, Grid};
 

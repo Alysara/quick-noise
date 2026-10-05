@@ -1,22 +1,14 @@
 use std::marker::PhantomData;
 
-use itertools::Zip;
-use simply_simd::{Arch, Simd};
+use simply_simd::{Arch, Simd, SimdToArray};
 
 use crate::api::batch::interface::{BatchGenerator, BatchNoise, DimIter};
+use crate::api::batch::{Zip, multizip};
 use crate::api::configs::*;
 use crate::api::parameters::*;
 use crate::math::random::Random;
 use crate::noise::combiners::Combiner;
 use crate::{HybridMulti, PingPong, Ridged, Terrace};
-
-#[inline(always)]
-pub fn multizip<T, U>(t: U) -> Zip<T>
-where
-    Zip<T>: From<U> + Iterator,
-{
-    Zip::from(t)
-}
 
 pub struct BatchNoiseBuilder<
     const D: usize,
@@ -171,17 +163,48 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>, A: Arch, I: DimIter<A, D
     BatchNoiseBuilder<D, C, G, A, I>
 {
     declare_fill!(self, output, {
-        if self.noise_config.initialize {
-            for (i, x) in self.into_iter().enumerate() {
-                x.copy_to_slice(&mut output[i * Simd::<f32, A>::LANES..]);
+        let initialize = self.noise_config.initialize;
+        let mut iter = self.into_iter();
+        let mut chunks = output.chunks_exact_mut(Simd::<f32, A>::LANES);
+
+        if initialize {
+            // Fast past for full chunks.
+            for chunk in &mut chunks {
+                match iter.next() {
+                    Some(x) => x.copy_to_slice(chunk),
+                    None => break,
+                }
+            }
+
+            // Tail for the last elements
+            let rem = chunks.into_remainder();
+            if !rem.is_empty()
+                && let Some(x) = iter.next()
+            {
+                let arr = x.to_array();
+                rem.copy_from_slice(&arr.as_slice()[..rem.len()]);
             }
         } else {
-            let mut i = 0;
-            for x in self.into_iter() {
-                let cur = Simd::from_slice(&output[i..]);
-                let x = cur + x;
-                x.copy_to_slice(&mut output[i..]);
-                i += Simd::<f32, A>::LANES;
+            // Fast past for full chunks.
+            for chunk in &mut chunks {
+                match iter.next() {
+                    Some(x) => {
+                        let cur = Simd::from_slice(chunk);
+                        (cur + x).copy_to_slice(chunk);
+                    }
+                    None => break,
+                }
+            }
+
+            // Tail for the last elements
+            let rem = chunks.into_remainder();
+            if !rem.is_empty()
+                && let Some(x) = iter.next()
+            {
+                let arr = x.to_array();
+                for (o, v) in rem.iter_mut().zip(arr.as_slice()) {
+                    *o += *v;
+                }
             }
         }
     });

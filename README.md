@@ -14,7 +14,7 @@ Time taken to produce 3 octaves of FBM noise for 1024x1024 (1,048,576) samples.
 | Library              | Perlin  |  Value  | Simplex | Cellular |
 |----------------------|---------|---------|---------|----------|
 | quick-noise (grid)   | 0.82 ms | 0.60 ms |    X    | 0.85 ms  |
-| quick-noise (batch)  | 3.64 ms | 3.39 ms | 5.09 ms | 6.01 ms  |
+| quick-noise (batch)  | 2.65 ms | 2.47 ms | 4.11 ms | 5.30 ms  |
 | fastnoise2           | 4.30 ms | 3.67 ms | 5.15 ms | 16.2 ms  |
 | fastnoise-lite       | 28.4 ms | 27.4 ms | 35.6 ms | 87.7 ms  |
 | simd-noise           |    X    |    X    | 7.79 ms | 11.3 ms  |
@@ -28,7 +28,7 @@ Time taken to produce 3 octaves of FBM noise for 128x128x128 (2,097,152) samples
 | Library              | Perlin  |  Value  | Simplex | Cellular |
 |----------------------|---------|---------|---------|----------|
 | quick-noise (grid)   | 0.73 ms | 0.65 ms |    X    |    X     |
-| quick-noise (batch)  | 20.6 ms | 11.3 ms | 20.4 ms | 34.6 ms  |
+| quick-noise (batch)  | 18.8 ms | 8.83 ms | 18.8 ms | 30.6 ms  |
 | fastnoise2           | 22.4 ms | 11.9 ms | 20.0 ms | 137 ms   |
 | fastnoise-lite       | 102 ms  | 83.7 ms | 133 ms  | 545 ms   |
 | simd-noise           |    X    |    X    | 22.0 ms | 78.0 ms  |
@@ -504,25 +504,25 @@ over a 64x64 grid (2D) and 32x32x32 grid (3D).
 Batch noise processing is much more flexible than uniform grid, allowing for any arbitrary input and enabling
 techniques such as domain warping, but at the cost of performance. Results are measured in millions of points per second.
 
-|   Perlin    | 2D AVX2 | 3D AVX2 | 2D AVX512 | 3D AVX512 |
-|-------------|---------|---------|-----------|-----------|
-| quick-noise | 769 M/s | 264 M/s | 1,810 M/s | 871 M/s   |
-| FastNoise2  | 598 M/s | 253 M/s | 942 M/s   | 678 M/s   |
-
-|    Value    | 2D AVX2   | 3D AVX2 | 2D AVX512 | 3D AVX512 |
+|   Perlin    |  2D AVX2  | 3D AVX2 | 2D AVX512 | 3D AVX512 |
 |-------------|-----------|---------|-----------|-----------|
-| quick-noise | 824 M/s   | 459 M/s | 2,265 M/s | 1,386 M/s |
-| FastNoise2  | 694 M/s   | 456 M/s | 1,193 M/s | 808 M/s   |
+| quick-noise | 1,097 M/s | 328 M/s | 1,810 M/s | 871 M/s   |
+| FastNoise2  | 586 M/s   | 248 M/s | 942 M/s   | 678 M/s   |
 
-|   Simplex   | 2D AVX2 | 3D AVX2 | 2D AVX512 | 3D AVX512 |
-|-------------|---------|---------|-----------|-----------|
-| quick-noise | 577 M/s | 271 M/s | 1,282 M/s | 816 M/s   |
-| FastNoise2  | 531 M/s | 290 M/s | 910 M/s   | 640 M/s   |
+|    Value    |  2D AVX2  | 3D AVX2 | 2D AVX512 | 3D AVX512 |
+|-------------|-----------|---------|-----------|-----------|
+| quick-noise | 1,224 M/s | 641 M/s | 2,265 M/s | 1,386 M/s |
+| FastNoise2  | 679 M/s   | 440 M/s | 1,193 M/s | 808 M/s   |
 
-|   Cellular  | 2D AVX2 | 3D AVX2  | 2D AVX512 | 3D AVX512 |
-|-------------|---------|----------|-----------|-----------|
-| quick-noise | 518 M/s | 176 M/s  | 1,196 M/s | 416 M/s   |
-| FastNoise2  | 188 M/s | 57.1 M/s | 397 M/s   | 149 M/s   |
+|   Simplex   |  2D AVX2  | 3D AVX2 | 2D AVX512 | 3D AVX512 |
+|-------------|-----------|---------|-----------|-----------|
+| quick-noise | 764 M/s   | 325 M/s | 1,282 M/s | 816 M/s   |
+| FastNoise2  | 514 M/s   | 284 M/s | 910 M/s   | 640 M/s   |
+
+|   Cellular  |  2D AVX2  | 3D AVX2  | 2D AVX512 | 3D AVX512 |
+|-------------|-----------|----------|-----------|-----------|
+| quick-noise | 698 M/s   | 211 M/s  | 1,196 M/s | 416 M/s   |
+| FastNoise2  | 185 M/s   | 56.5 M/s | 397 M/s   | 149 M/s   |
 
 # Running
 

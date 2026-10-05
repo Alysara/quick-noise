@@ -28,7 +28,6 @@ debug = "line-tables-only"
 strip = false
 
 [dependencies]
-itertools = "0.14.0"
 simply-simd = { git = "https://github.com/Alysara/simply-simd" }
 image = { version = "0.25.9", default-features = false, features = ["png"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
