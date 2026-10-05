@@ -8,6 +8,8 @@ version = "0.2.0"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/Alysara/quick-noise"
+homepage = "https://github.com/Alysara/quick-noise"
+documentation = "https://docs.rs/quick-noise/"
 keywords = ["noise", "simd", "simplex", "perlin", "performance"]
 categories = ["game-engines", "multimedia::images"]
 readme = "README.md"
@@ -27,7 +29,7 @@ strip = false
 
 [dependencies]
 itertools = "0.14.0"
-simply-simd = { git = "https://github.com/Alysara/simply-simd", rev = "61ea434b97b75ec6601fa3591029046add497655" }
+simply-simd = { git = "https://github.com/Alysara/simply-simd" }
 image = { version = "0.25.9", default-features = false, features = ["png"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_arrays = { version = "0.2", optional = true }
@@ -43,6 +45,10 @@ split-stats = []
 
 [[example]]
 name = "basic"
+required-features = ["image"]
+
+[[example]]
+name = "debug"
 required-features = ["image"]
 
 [[example]]

@@ -2,6 +2,7 @@ use simply_simd::{Arch, Simd};
 
 use crate::{Combiner, CombinerArray};
 
+/// Config struct for the HybridMulti combiner.
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct HybridMultiConfig {
@@ -18,6 +19,8 @@ impl Default for HybridMultiConfig {
     }
 }
 
+/// Combines noise using a weighted signal that propagates into a running weight
+/// for subsequent samples by multiplication.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct HybridMulti {}
 impl Combiner for HybridMulti {

@@ -2,6 +2,7 @@ use simply_simd::{Arch, Simd};
 
 use crate::{Combiner, CombinerArray};
 
+/// Config struct for PingPong combiner.
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PingPongConfig {
@@ -14,8 +15,10 @@ impl Default for PingPongConfig {
     }
 }
 
+/// Combines noise by oscillating samples together.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct PingPong {}
+
 impl Combiner for PingPong {
     const WEIGHT_DECAY: bool = true;
     type State<A: Arch> = CombinerArray<A, 0>;

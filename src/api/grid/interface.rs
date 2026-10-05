@@ -16,7 +16,7 @@ pub struct GridNoiseParams<const D: usize> {
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
     pub grid_size: [usize; D],
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
-    pub position: [i32; D],
+    pub position: [f32; D],
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
     pub frequency: [f32; D],
     pub weight: f32,
@@ -38,7 +38,7 @@ pub trait GridGenerator<const D: usize>: Default + Copy + Clone + PartialEq {
     /// - `combiner_config`: Config specifying combiner parameters
     /// - `state`: Buffer containing sample information across octaves
     /// - `dst`: Buffer to insert the results into
-    fn sample_grid<F: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
+    fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<D>,
         combiner_config: C::Config,
         state: &mut [f32],
@@ -47,9 +47,9 @@ pub trait GridGenerator<const D: usize>: Default + Copy + Clone + PartialEq {
 }
 
 /// Static struct for sampling grid noise.
-pub struct GridNoise<const D: usize, C: Combiner, S: GridGenerator<D>> {
+pub struct GridNoise<const D: usize, C: Combiner, G: GridGenerator<D>> {
     _fractal: PhantomData<C>,
-    _sampler: PhantomData<S>,
+    _sampler: PhantomData<G>,
 }
 
 /// An interface struct for creating grid noise.
@@ -63,7 +63,7 @@ pub struct GridNoise<const D: usize, C: Combiner, S: GridGenerator<D>> {
 ///
 /// // Subject to change.
 /// let grid = Grid::<2>::new(32, 32)
-///     .grid_position(0, 0)
+///     .grid_position(0.0, 0.0)
 ///     .seed(1);
 /// ```
 
@@ -106,10 +106,10 @@ impl<A: Arch> Grid<2, A> {
     /// # Default:
     /// `0`: x
     /// `0`: y
-    pub fn grid_position(mut self, x: i32, y: i32) -> Self {
+    pub fn grid_position(mut self, x: f32, y: f32) -> Self {
         self.config.position = [
-            x * self.config.grid_size[0] as i32,
-            y * self.config.grid_size[1] as i32,
+            x * self.config.grid_size[0] as f32,
+            y * self.config.grid_size[1] as f32,
         ];
         self
     }
@@ -121,7 +121,7 @@ impl<A: Arch> Grid<2, A> {
     /// # Default:
     /// `0`: x
     /// `0`: y
-    pub fn sample_position(mut self, x: i32, y: i32) -> Self {
+    pub fn sample_position(mut self, x: f32, y: f32) -> Self {
         self.config.position = [x, y];
         self
     }
@@ -165,11 +165,11 @@ impl<A: Arch> Grid<3, A> {
     /// `0`: x
     /// `0`: y
     /// `0`: z
-    pub fn grid_position(mut self, x: i32, y: i32, z: i32) -> Self {
+    pub fn grid_position(mut self, x: f32, y: f32, z: f32) -> Self {
         self.config.position = [
-            x * self.config.grid_size[0] as i32,
-            y * self.config.grid_size[1] as i32,
-            z * self.config.grid_size[2] as i32,
+            x * self.config.grid_size[0] as f32,
+            y * self.config.grid_size[1] as f32,
+            z * self.config.grid_size[2] as f32,
         ];
         self
     }
@@ -182,7 +182,7 @@ impl<A: Arch> Grid<3, A> {
     /// `0`: x
     /// `0`: y
     /// `0`: z
-    pub fn sample_position(mut self, x: i32, y: i32, z: i32) -> Self {
+    pub fn sample_position(mut self, x: f32, y: f32, z: f32) -> Self {
         self.config.position = [x, y, z];
         self
     }
@@ -210,16 +210,24 @@ impl<const D: usize, A: Arch> Grid<D, A> {
     }
 
     /// Creates a new builder to easily configure a grid region of noise.
-    pub fn builder<F: Combiner, T: GridGenerator<D>>(&self) -> GridNoiseBuilder<D, F, T, A> {
+    ///
+    /// # Type Parameters
+    /// - `C`: The algorithm to combine separate noise passes (octaves) together.
+    /// - `G`: The algorithm to sample noise with.
+    pub fn builder<C: Combiner, G: GridGenerator<D>>(&self) -> GridNoiseBuilder<D, C, G, A> {
         GridNoiseBuilder::from_config(self.config)
     }
 
     /// Creates a new builder using a custom octave list to configure
     /// a grid region of noise.
-    pub fn builder_with_octaves<'a, F: Combiner, T: GridGenerator<D>>(
+    ///
+    /// # Type Parameters
+    /// - `C`: The algorithm to combine separate noise passes (octaves) together.
+    /// - `G`: The algorithm to sample noise with.
+    pub fn builder_with_octaves<'a, C: Combiner, G: GridGenerator<D>>(
         &self,
         octave_list: &'a [Octave<D>],
-    ) -> OctaveGridNoiseBuilder<'a, D, F, T, A> {
+    ) -> OctaveGridNoiseBuilder<'a, D, C, G, A> {
         OctaveGridNoiseBuilder::new(self.config, octave_list)
     }
 }

@@ -2,6 +2,7 @@ use simply_simd::{Arch, Simd};
 
 use crate::{Combiner, CombinerArray};
 
+/// Config struct for the Terrace combiner.
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TerraceConfig {
@@ -18,6 +19,8 @@ impl Default for TerraceConfig {
     }
 }
 
+/// Combines noise by adding subsequent samples together and binning the
+/// final result into a specified number of steps.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct Terrace {}
 impl Combiner for Terrace {

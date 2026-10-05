@@ -4,6 +4,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Perlin;
+use crate::noise::util::constants::{BYTE_SHUFFLE, HASH_PRIME};
 
 pub const X_GRADIENTS_2D: [f32; 8] = [
     SQRT_2,
@@ -27,8 +28,9 @@ pub const Y_GRADIENTS_2D: [f32; 8] = [
     -1.0000000000000000,
 ];
 
-#[enable_targets(A)]
+// #[enable_targets(A)]
 impl BatchGenerator<2> for Perlin {
+    #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 2],
@@ -40,16 +42,9 @@ impl BatchGenerator<2> for Perlin {
         let fifteen: Simd<f32, A> = Simd::splat(15.0);
         let one: Simd<f32, A> = Simd::splat(1.0);
 
-        // Hash constants.
-        const BYTE_SHUFFLE: [u8; 64] = [
-            3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8,
-            10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2,
-            1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13,
-        ];
-
         let shuffle_indices = Simd::<u8, A>::from_slice(&BYTE_SHUFFLE[..]);
         let channel_seed = Simd::splat(seed);
-        let prime = Simd::splat(0x85ebca6b_u32);
+        let prime = Simd::splat(HASH_PRIME);
 
         // Scale: 2
         let x_scaled = input[0] * freq[0];

@@ -40,7 +40,7 @@ pub struct GridConfig<const D: usize> {
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
     pub grid_size: [usize; D],
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
-    pub position: [i32; D],
+    pub position: [f32; D],
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
     pub tiling: [Option<u32>; D],
 }

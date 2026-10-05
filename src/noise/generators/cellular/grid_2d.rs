@@ -1,6 +1,6 @@
 use std::mem::MaybeUninit;
 
-use simply_simd::{ Arch, Simd, enable_targets };
+use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{ Combiner, CombinerState };
@@ -15,8 +15,14 @@ use crate::noise::util::grid_helpers::{
     validate_grid_size,
     validate_state_size,
     simd_rem_euclid_i32,
+use crate::noise::combiners::{Combiner, CombinerState};
+use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
+use crate::noise::util::grid_data::{GridData, Lerp};
+use crate::noise::util::grid_helpers::{
+    Arena, ArenaBuffer, MaybeUninitSliceSimdExt, maybe_tail_load, maybe_tail_store, pad_grid_size,
+    validate_grid_size, validate_state_size,
 };
-use crate::{ Cellular, GridGenerator };
+use crate::{Cellular, GridGenerator};
 
 /// Candidate offsets for the 12 candidates (4 base + 8 ring). The ring is
 /// grouped by bounding edge and stay aligned with the near/far gate
@@ -29,25 +35,14 @@ const NEIGHBORS_12: [(i32, i32); 12] = [
     (1, 0),
     (0, 1),
     (1, 1),
-
     (-1, 0),
     (-1, 1),
-
     (0, -1),
     (1, -1),
-
     (2, 0),
     (2, 1),
-
     (0, 2),
     (1, 2),
-];
-
-const BYTE_SHUFFLE: [u8; 64] = [
-    3, 0, 2, 1,  7, 4, 6, 5,  11, 8, 10, 9,  15, 12, 14, 13, 
-    3, 0, 2, 1,  7, 4, 6, 5,  11, 8, 10, 9,  15, 12, 14, 13, 
-    3, 0, 2, 1,  7, 4, 6, 5,  11, 8, 10, 9,  15, 12, 14, 13, 
-    3, 0, 2, 1,  7, 4, 6, 5,  11, 8, 10, 9,  15, 12, 14, 13,
 ];
 
 struct RowWindow {
@@ -61,22 +56,10 @@ struct RowWindow {
 impl RowWindow {
     fn new(arena: &mut Arena, width: usize) -> Self {
         Self {
-            top: arena
-                .allocate::<f32>(width * 2)
-                .as_mut_ptr()
-                .cast(),
-            sec: arena
-                .allocate::<f32>(width * 2)
-                .as_mut_ptr()
-                .cast(),
-            thi: arena
-                .allocate::<f32>(width * 2)
-                .as_mut_ptr()
-                .cast(),
-            bot: arena
-                .allocate::<f32>(width * 2)
-                .as_mut_ptr()
-                .cast(),
+            top: arena.allocate::<f32>(width * 2).as_mut_ptr().cast(),
+            sec: arena.allocate::<f32>(width * 2).as_mut_ptr().cast(),
+            thi: arena.allocate::<f32>(width * 2).as_mut_ptr().cast(),
+            bot: arena.allocate::<f32>(width * 2).as_mut_ptr().cast(),
             width,
         }
     }
@@ -166,7 +149,7 @@ impl RowWindow {
 #[inline(always)]
 fn hash_cells_row<A: Arch>(lx_v: Simd<u32, A>, y_shuf: Simd<u32, A>, seed: u32) -> Simd<u32, A> {
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
-    let prime = Simd::<u32, A>::splat(0x85ebca6b_u32);
+    let prime = Simd::<u32, A>::splat(HASH_PRIME);
     let seed_v = Simd::<u32, A>::splat(seed);
 
     let x_shuf = (lx_v * seed_v).permute_8(shuffle_indices) ^ prime;
@@ -176,17 +159,16 @@ fn hash_cells_row<A: Arch>(lx_v: Simd<u32, A>, y_shuf: Simd<u32, A>, seed: u32) 
 #[inline(always)]
 fn hash_cell_y<A: Arch>(y: u32, seed: u32) -> u32 {
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
-    let prime = Simd::<u32, A>::splat(0x85ebca6b_u32);
+    let prime = Simd::<u32, A>::splat(HASH_PRIME);
     (Simd::<u32, A>::splat(y.wrapping_mul(seed)).permute_8(shuffle_indices) ^ prime).to_array()[0]
 }
 
 #[inline(always)]
 fn hash_cell_with_y<A: Arch>(x: u32, y_shuf: u32, seed: u32) -> u32 {
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
-    let prime = Simd::<u32, A>::splat(0x85ebca6b_u32);
-    let x_shuf = (
-        Simd::<u32, A>::splat(x.wrapping_mul(seed)).permute_8(shuffle_indices) ^ prime
-    ).to_array()[0];
+    let prime = Simd::<u32, A>::splat(HASH_PRIME);
+    let x_shuf = (Simd::<u32, A>::splat(x.wrapping_mul(seed)).permute_8(shuffle_indices) ^ prime)
+        .to_array()[0];
     x_shuf.wrapping_mul(y_shuf) ^ x_shuf
 }
 
@@ -195,8 +177,8 @@ fn hash_cell_with_y<A: Arch>(x: u32, y_shuf: u32, seed: u32) -> u32 {
 /// unform values in the range `[1, 2)`
 #[inline(always)]
 pub(super) fn split_hash(hash: u32) -> (f32, f32) {
-    let exp_bits = 0x3f800000;
-    let hash_mask = 0x007fffff;
+    let exp_bits = CELLULAR_EXP_MASK;
+    let hash_mask = HASH_MASK;
     let tx = 1.5 - f32::from_bits((hash & hash_mask) | exp_bits);
     let ty = 1.5 - f32::from_bits((hash >> 9) | exp_bits);
     (tx, ty)
@@ -233,7 +215,7 @@ impl CellJitters {
         sec: &[(f32, f32)],
         thi: &[(f32, f32)],
         bot: &[(f32, f32)],
-        x_it: usize
+        x_it: usize,
     ) {
         for (i, &(ox, oy)) in NEIGHBORS_12.iter().enumerate() {
             let row: &[(f32, f32)] = match oy {
@@ -245,8 +227,12 @@ impl CellJitters {
             };
             let (jx, jy) = row[x_it + ((ox + 1) as usize)];
             unsafe {
-                self.parts.add(i * 2).write(MaybeUninit::new(jx + (ox as f32)));
-                self.parts.add(i * 2 + 1).write(MaybeUninit::new(jy + (oy as f32)));
+                self.parts
+                    .add(i * 2)
+                    .write(MaybeUninit::new(jx + (ox as f32)));
+                self.parts
+                    .add(i * 2 + 1)
+                    .write(MaybeUninit::new(jy + (oy as f32)));
             }
         }
     }
@@ -258,7 +244,7 @@ impl GridGenerator<2> for Cellular {
         params: GridNoiseParams<2>,
         combiner: C::Config,
         state: &mut [f32],
-        dst: &mut [f32]
+        dst: &mut [f32],
     ) {
         validate_grid_size(params.grid_size, dst.len());
         validate_state_size::<C, A, _>(params.grid_size, state.len());
@@ -309,22 +295,20 @@ impl GridGenerator<2> for Cellular {
 
         let mut y_idx = 0;
         for y_it in 0..grid_data.num_loops[1] {
-            let y_next_idx = unsafe {
-                grid_data.grid_indices[1].get_unchecked(y_it).assume_init() as usize
-            };
+            let y_next_idx =
+                unsafe { grid_data.grid_indices[1].get_unchecked(y_it).assume_init() as usize };
 
             let mut x_idx = 0;
             for x_it in 0..grid_data.num_loops[0] {
-                let x_next_idx = unsafe {
-                    grid_data.grid_indices[0].get_unchecked(x_it).assume_init() as usize
-                };
+                let x_next_idx =
+                    unsafe { grid_data.grid_indices[0].get_unchecked(x_it).assume_init() as usize };
 
                 cell_jitters.write::<A>(
                     window.top(),
                     window.sec(),
                     window.thi(),
                     window.bot(),
-                    x_it
+                    x_it,
                 );
 
                 grid_cellular_fill::<A, C, INIT, FINAL>(
@@ -336,7 +320,7 @@ impl GridGenerator<2> for Cellular {
                     y_next_idx,
                     dst,
                     state,
-                    &combiner
+                    &combiner,
                 );
 
                 x_idx = x_next_idx;
@@ -369,7 +353,7 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
     y_next: usize,
     dst: &mut [f32],
     state: &mut [f32],
-    combiner_config: &C::Config
+    combiner_config: &C::Config,
 ) {
     let lanes = Simd::<f32, A>::LANES;
     let row_width = grid_data.grid_size[0];
@@ -380,15 +364,14 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         let sy = unsafe { grid_data.distances[1].get_unchecked(y).assume_init() };
         let row_start = y * row_width;
 
-        // (sy - jy)^2` is identical for every block in this cell segment, 
+        // (sy - jy)^2` is identical for every block in this cell segment,
         // so they are computed once per row instead of once per block.
         let mut dysq: [MaybeUninit<Simd<f32, A>>; 12] =
             std::array::from_fn(|_| MaybeUninit::uninit());
         for c in 0..12 {
             let jy = unsafe { (*jit.parts.add(c * 2 + 1)).assume_init() };
-            let dy_sq =
-                (Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy)) *
-                (Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy));
+            let dy_sq = (Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy))
+                * (Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy));
             dysq[c].write(dy_sq);
         }
         let dysq = &dysq;
@@ -406,7 +389,7 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
                 index,
                 dst,
                 state,
-                combiner_config
+                combiner_config,
             );
             index += lanes;
         }
@@ -422,7 +405,7 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
                 index,
                 dst,
                 state,
-                combiner_config
+                combiner_config,
             );
         }
     }
@@ -434,7 +417,7 @@ fn grid_cellular_fill_block<
     C: Combiner,
     const INIT: bool,
     const FINAL: bool,
-    const IS_TAIL: bool
+    const IS_TAIL: bool,
 >(
     grid_data: &CellularGridData<2>,
     jit: &CellJitters,
@@ -446,9 +429,13 @@ fn grid_cellular_fill_block<
     index: usize,
     dst: &mut [f32],
     state: &mut [f32],
-    combiner_config: &C::Config
+    combiner_config: &C::Config,
 ) {
-    let lanes = if IS_TAIL { x_next - index } else { Simd::<f32, A>::LANES };
+    let lanes = if IS_TAIL {
+        x_next - index
+    } else {
+        Simd::<f32, A>::LANES
+    };
     let sample_start = row_start + index;
     let sample_end = sample_start + lanes;
 
@@ -519,7 +506,7 @@ fn grid_cellular_fill_block<
                 maybe_tail_store::<A, IS_TAIL>(
                     sample_start + offset..sample_end + offset,
                     cur_state[i],
-                    state
+                    state,
                 );
             }
         }
@@ -575,21 +562,21 @@ mod tests {
     fn cellular_grid_2d_reference() {
         let seed = 123456789i64;
 
-        for freq in [1.0 / 32.0, 1.0 / 8.0, 1.0 / 6.0, 1.0 / 4.0, 1.0 / 3.0, 1.0 / 2.0] {
-            check_reference(64, 64, seed, -5, 3, freq);
+        for freq in [
+            1.0 / 32.0,
+            1.0 / 8.0,
+            1.0 / 6.0,
+            1.0 / 4.0,
+            1.0 / 3.0,
+            1.0 / 2.0,
+        ] {
+            check_reference(64, 64, seed, -5.0, 3.0, freq);
         }
 
-        check_reference(32, 96, seed, -5, 3, 1.0 / 6.0);
+        check_reference(32, 96, seed, -5.0, 3.0, 1.0 / 6.0);
     }
 
-    fn check_reference(
-        w: usize,
-        h: usize,
-        seed: i64,
-        offset_x: i32,
-        offset_y: i32,
-        freq: f32
-    ) {
+    fn check_reference(w: usize, h: usize, seed: i64, offset_x: f32, offset_y: f32, freq: f32) {
         let grid = Grid::<2>::new(w, h)
             .seed(seed)
             .sample_position(offset_x, offset_y);
@@ -627,3 +614,4 @@ mod tests {
         gain.to_array()[0]
     }
 }
+

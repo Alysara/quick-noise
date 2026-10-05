@@ -2,6 +2,7 @@ use simply_simd::{Arch, Simd};
 
 use crate::{Combiner, CombinerArray};
 
+/// Combines noise by adding the absolute value of subsequent octaves together.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct Billow {}
 

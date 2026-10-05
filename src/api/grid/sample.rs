@@ -10,18 +10,29 @@ use crate::{Combiner, CombinerState};
 
 #[enable_targets(A)]
 impl<const D: usize, C: Combiner, G: GridGenerator<D>> GridNoise<D, C, G> {
+    /// Samples a uniform grid of noise using config structs. Using the builders
+    /// instead is recommended for ease-of-use. 
+    ///
+    /// # Type Parameters:
+    /// - `A`: The simd feature set to use.
+    /// 
+    /// # Parameters:
+    /// - `grid_config`: The parameters of the grid being sampled.
+    /// - `noise_config`: The parameters of the noise being generated.
+    /// - `combiner_config`: Additional parameters for the combiner algorithm.
+    /// - `dst`: Slice to write the output noise results.
     pub fn sample<A: Arch>(
         grid_config: &GridConfig<D>,
         noise_config: &NoiseConfig<D>,
         combiner_config: &C::Config,
-        result: &mut [f32],
+        dst: &mut [f32],
     ) {
         let octaves = noise_config.num_grid_octaves();
 
         // Fill with zeroes if there are no octaves.
         if octaves == 0 {
             if noise_config.initialize {
-                result.fill(0.0)
+                dst.fill(0.0)
             }
             return;
         }
@@ -59,21 +70,21 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>> GridNoise<D, C, G> {
             noise_config.initialize,
             noise_config.finalize && octaves == 1,
         ) {
-            (false, false) => G::sample_grid::<A, C, false, false>(params, f_config, state, result),
-            (true, false) => G::sample_grid::<A, C, true, false>(params, f_config, state, result),
-            (false, true) => G::sample_grid::<A, C, false, true>(params, f_config, state, result),
-            (true, true) => G::sample_grid::<A, C, true, true>(params, f_config, state, result),
+            (false, false) => G::sample_grid::<A, C, false, false>(params, f_config, state, dst),
+            (true, false) => G::sample_grid::<A, C, true, false>(params, f_config, state, dst),
+            (false, true) => G::sample_grid::<A, C, false, true>(params, f_config, state, dst),
+            (true, true) => G::sample_grid::<A, C, true, true>(params, f_config, state, dst),
         }
 
         // Subsequent octaves:
-        for _ in 1..(octaves.saturating_sub(2)) {
+        for _ in 1..(octaves.saturating_sub(1)) {
             if C::WEIGHT_DECAY {
                 params.weight *= noise_config.persistence;
             }
             params.frequency =
                 std::array::from_fn(|i| params.frequency[i] * noise_config.lacunarity);
             params.seed = gen_octave_seed(params.frequency, base_seed);
-            G::sample_grid::<A, C, false, false>(params, f_config, state, result);
+            G::sample_grid::<A, C, false, false>(params, f_config, state, dst);
         }
 
         if octaves > 1 {
@@ -82,8 +93,8 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>> GridNoise<D, C, G> {
                 std::array::from_fn(|i| params.frequency[i] * noise_config.lacunarity);
             params.seed = gen_octave_seed(params.frequency, base_seed);
             match noise_config.finalize {
-                true => G::sample_grid::<A, C, false, true>(params, f_config, state, result),
-                false => G::sample_grid::<A, C, false, false>(params, f_config, state, result),
+                true => G::sample_grid::<A, C, false, true>(params, f_config, state, dst),
+                false => G::sample_grid::<A, C, false, false>(params, f_config, state, dst),
             }
         }
     }

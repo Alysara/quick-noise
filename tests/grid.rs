@@ -20,6 +20,10 @@ fn irregular_grid_2d_static() {
 fn large_grid_2d_static() {
     test_grid_2d::<10000, _>(Grid::<2>::new(100, 100));
 }
+#[test]
+fn long_grid_2d_static() {
+    test_grid_2d::<50000, _>(Grid::<2>::new(10000, 5));
+}
 
 #[test]
 #[dispatch_simd(A)]
@@ -41,6 +45,11 @@ fn irregular_grid_2d_dyn() {
 fn large_grid_2d_dyn() {
     test_grid_2d::<10000, _>(Grid::<2, A>::new(100, 100));
 }
+#[test]
+#[dispatch_simd(A)]
+fn long_grid_2d_dyn() {
+    test_grid_2d::<50000, _>(Grid::<2, A>::new(10000, 5));
+}
 
 #[test]
 fn tiny_grid_3d_static() {
@@ -57,6 +66,10 @@ fn irregular_grid_3d_static() {
 #[test]
 fn large_grid_3d_static() {
     test_grid_3d::<125000, _>(Grid::<3>::new(50, 50, 50));
+}
+#[test]
+fn long_grid_3d_static() {
+    test_grid_3d::<90000, _>(Grid::<3>::new(10000, 3, 3));
 }
 
 #[test]
@@ -79,6 +92,30 @@ fn irregular_grid_3d_dyn() {
 fn large_grid_3d_dyn() {
     test_grid_3d::<125000, _>(Grid::<3, A>::new(50, 50, 50));
 }
+#[test]
+#[dispatch_simd(A)]
+fn long_grid_3d_dyn() {
+    test_grid_3d::<90000, _>(Grid::<3, A>::new(10000, 3, 3));
+}
+
+#[test]
+fn fractional_position_matches_integer_position() {
+    const CHUNK_SIZE: usize = 16;
+    const MIDDLE: usize = CHUNK_SIZE / 2;
+
+    let normal = Grid::<2>::new(CHUNK_SIZE, CHUNK_SIZE);
+    let normal = normal.builder::<Fbm, Perlin>().build();
+
+    // Magnified grid should be able to lookup fractional positions
+    // and they should match with unmagnified grid values
+    let zoomed_out = Grid::<2>::new(2, 2).sample_position(0.5, 0.5);
+    let zommed_out = zoomed_out
+        .builder::<Fbm, Perlin>()
+        .magnification(CHUNK_SIZE as f32)
+        .build();
+
+    assert!((normal[MIDDLE * CHUNK_SIZE + MIDDLE] - zommed_out[0]).abs() < 1e-6);
+}
 
 #[test]
 fn tiled_grid_2d() {
@@ -87,6 +124,18 @@ fn tiled_grid_2d() {
     let mut result = [0.0; 32768];
     grid.builder::<Fbm, Perlin>()
         .octaves(6)
+        .fill(result.as_mut_slice());
+    verify_slice(result.as_slice());
+
+    grid.builder::<Fbm, Value>()
+        .octaves(6)
+        .initialize(false)
+        .fill(result.as_mut_slice());
+    verify_slice(result.as_slice());
+
+    grid.builder::<Fbm, Cellular>()
+        .octaves(6)
+        .initialize(false)
         .fill(result.as_mut_slice());
     verify_slice(result.as_slice());
 }
@@ -99,6 +148,13 @@ fn tiled_grid_3d() {
     grid.builder::<Fbm, Perlin>()
         .frequency(1.0 / 8.0)
         .octaves(6)
+        .fill(result.as_mut_slice());
+    verify_slice(result.as_slice());
+
+    grid.builder::<Fbm, Value>()
+        .frequency(1.0 / 8.0)
+        .octaves(6)
+        .initialize(false)
         .fill(result.as_mut_slice());
     verify_slice(result.as_slice());
 }
@@ -135,10 +191,16 @@ fn test_grid_2d<const N: usize, A: Arch>(grid: Grid<2, A>) {
     grid.builder::<Fbm, Value>().fill(&mut result);
     verify_slice(result.as_slice());
 
+    grid.builder::<Fbm, Cellular>().fill(&mut result);
+    verify_slice(result.as_slice());
+
     grid.builder::<Billow, Perlin>().fill(&mut result);
     verify_slice(result.as_slice());
 
     grid.builder::<Billow, Value>().octaves(2).fill(&mut result);
+    verify_slice(result.as_slice());
+
+    grid.builder::<Billow, Cellular>().octaves(2).fill(&mut result);
     verify_slice(result.as_slice());
 
     grid.builder::<Multi, Perlin>().fill(&mut result);
@@ -156,6 +218,9 @@ fn test_grid_2d<const N: usize, A: Arch>(grid: Grid<2, A>) {
     verify_slice(result.as_slice());
 
     grid.builder::<Ridged, Value>().fill(&mut result);
+    verify_slice(result.as_slice());
+
+    grid.builder::<Ridged, Cellular>().fill(&mut result);
     verify_slice(result.as_slice());
 
     let noise1 = grid

@@ -2,9 +2,10 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Cellular;
+use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 
-#[enable_targets(A)]
 impl BatchGenerator<3> for Cellular {
+    #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 3],
@@ -14,19 +15,13 @@ impl BatchGenerator<3> for Cellular {
         let three_halves: Simd<f32, A> = Simd::splat(1.5);
         let one: Simd<f32, A> = Simd::splat(1.0);
 
-        let hash_mask: Simd<u32, A> = Simd::splat(0x007FFFFF);
-        let exp_bits: Simd<u32, A> = Simd::splat(0x3F800000);
+        let hash_mask: Simd<u32, A> = Simd::splat(HASH_MASK);
+        let exp_bits: Simd<u32, A> = Simd::splat(CELLULAR_EXP_MASK);
 
         // Hash constants.
-        const BYTE_SHUFFLE: [u8; 64] = [
-            3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8,
-            10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2,
-            1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13,
-        ];
-
         let shuffle_indices = Simd::<u8, A>::from_slice(&BYTE_SHUFFLE[..]);
         let channel_seed = Simd::splat(seed);
-        let prime = Simd::splat(0x85ebca6b_u32);
+        let prime = Simd::splat(HASH_PRIME);
 
         // Scale: 3
         let x_scaled = input[0] * freq[0];

@@ -2,12 +2,11 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
-    branches: [ "main" ]
 
 env:
   CARGO_TERM_COLOR: always
+  RUST_MIN_STACK: 16777216
 
 jobs:
   x86:
@@ -34,6 +33,7 @@ jobs:
         run: cargo build -p quick-noise --features="image" --verbose --target x86_64-unknown-linux-gnu
         env:
           RUSTFLAGS: ${{ matrix.rustflags }}
+          RUST_MIN_STACK: 16777216
 
       - name: Check AVX-512 support
         if: matrix.name == 'avx512'
@@ -50,12 +50,14 @@ jobs:
         run: cargo test -p quick-noise --features="image" --verbose --target x86_64-unknown-linux-gnu
         env:
           RUSTFLAGS: ${{ matrix.rustflags }}
+          RUST_MIN_STACK: 16777216
 
       - name: Test (avx512)
         if: matrix.name == 'avx512' && steps.cpu.outputs.has_avx512 == 'true'
         run: cargo test -p quick-noise --features="image" --verbose --target x86_64-unknown-linux-gnu
         env:
           RUSTFLAGS: ${{ matrix.rustflags }}
+          RUST_MIN_STACK: 16777216
 
   arm-neon:
     runs-on: ubuntu-24.04-arm
@@ -69,8 +71,10 @@ jobs:
         run: cargo build -p quick-noise --features="image" --verbose --target aarch64-unknown-linux-gnu
         env:
           RUSTFLAGS: "-C target-feature=+neon"
+          RUST_MIN_STACK: 16777216
 
       - name: Test (neon)
         run: cargo test -p quick-noise --features="image" --verbose --target aarch64-unknown-linux-gnu
         env:
           RUSTFLAGS: "-C target-feature=+neon"
+          RUST_MIN_STACK: 16777216

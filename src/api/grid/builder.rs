@@ -8,8 +8,8 @@ use crate::simd::register::iters::IntoSimdIterator;
 use crate::simd::{Arch, StaticArch};
 use crate::{Combiner, HybridMulti, PingPong, Ridged, Terrace};
 
-/// A struct for creating FBM noise set on a uniform grid.
-/// The most performant way to generate Perlin noise.
+/// A struct for creating noise on a uniform grid.
+/// The most performant way to generate noise.
 #[derive(Default, Copy, Clone)]
 pub struct GridNoiseBuilder<const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch = StaticArch>
 {

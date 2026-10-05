@@ -9,8 +9,8 @@ use crate::simd::register::iters::IntoSimdIterator;
 use crate::simd::{Arch, StaticArch};
 use crate::{Combiner, GridGenerator, HybridMulti, PingPong, Ridged, Terrace};
 
-/// A struct for creating 2D Perlin noise set on a uniform grid with
-/// a custom list of octaves. Uses the performant perlin algorithm.
+/// A struct for creating noise on a uniform grid with custom octaves.
+/// The most performant way to generate noise.
 #[derive(Default)]
 pub struct OctaveGridNoiseBuilder<
     'a,

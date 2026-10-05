@@ -4,6 +4,7 @@ use simply_simd::{ Arch, Simd, enable_targets };
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Simplex;
+use crate::noise::util::constants::{BYTE_SHUFFLE, HASH_PRIME};
 
 const SQRT_3: f32 = 1.732_050_8;
 const SKEW_2D: f32 = (SQRT_3 - 1.0) / 2.0;
@@ -18,8 +19,8 @@ const C: f32 = 0.0;
 pub const X_GRADIENTS_2D: [f32; 8] = [A, B, C, -B, -A, -B, C, B];
 pub const Y_GRADIENTS_2D: [f32; 8] = [C, B, A, B, C, -B, -A, -B];
 
-#[enable_targets(A)]
 impl BatchGenerator<2> for Simplex {
+    #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 2],
@@ -36,15 +37,9 @@ impl BatchGenerator<2> for Simplex {
         let neg_two_thirds = Simd::splat(-2.0 / 3.0);
 
         // Hash constants.
-        const BYTE_SHUFFLE: [u8; 64] = [
-            3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8,
-            10, 9, 15, 12, 14, 13, 3, 0, 2, 1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13, 3, 0, 2,
-            1, 7, 4, 6, 5, 11, 8, 10, 9, 15, 12, 14, 13,
-        ];
-
         let shuffle_indices = Simd::<u8, A>::from_slice(&BYTE_SHUFFLE[..]);
         let channel_seed = Simd::splat(seed);
-        let prime = Simd::splat(0x85ebca6b_u32);
+        let prime = Simd::splat(HASH_PRIME);
 
         let x_scaled = input[0] * freq[0];
         let y_scaled = input[1] * freq[1];

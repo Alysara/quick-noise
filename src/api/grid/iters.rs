@@ -5,44 +5,57 @@ use simply_simd::{Arch, Mask, Simd, SimdToArray, enable_targets};
 use crate::Grid;
 
 impl<A: Arch> Grid<2, A> {
+    /// Creates a simd iterator of the x values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn x_iter(&self) -> RowIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        RowIter::new(dim[0], dim[1], pos[0] as f32)
+        RowIter::new(dim[0], dim[1], pos[0])
     }
 
+    /// Creates a simd iterator of the y values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn y_iter(&self) -> SliceIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        SliceIter::new(dim[0], dim[1], 1, pos[1] as f32)
+        SliceIter::new(dim[0], dim[1], 1, pos[1])
     }
 }
 
 impl<A: Arch> Grid<3, A> {
+    /// Creates a simd iterator of the x values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn x_iter(&self) -> RowIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        RowIter::new(dim[0], dim[1] * dim[2], pos[0] as f32)
+        RowIter::new(dim[0], dim[1] * dim[2], pos[0])
     }
 
+    /// Creates a simd iterator of the y values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn y_iter(&self) -> SliceIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        SliceIter::new(dim[0], dim[1], dim[2], pos[1] as f32)
+        SliceIter::new(dim[0], dim[1], dim[2], pos[1])
     }
 
+    /// Creates a simd iterator of the z values when iterating
+    /// through the grid sample by sample.
     #[inline(always)]
     pub fn z_iter(&self) -> SliceIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        SliceIter::new(dim[0] * dim[1], dim[2], 1, pos[2] as f32)
+        SliceIter::new(dim[0] * dim[1], dim[2], 1, pos[2])
     }
 }
 
+/// A simd iterator that iterates through the fastest changing
+/// value (x axis). These values change after every subsequent
+/// sample.
 #[derive(Debug)]
 pub struct RowIter<A: Arch> {
     row_size: usize,
@@ -67,10 +80,11 @@ impl<A: Arch> RowIter<A> {
     }
 }
 
-#[enable_targets(A)]
+// #[enable_targets(A)]
 impl<A: Arch> Iterator for RowIter<A> {
     type Item = Simd<f32, A>;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Simd<f32, A>> {
         // Scalar case.
         if self.row_size < Simd::<f32, A>::LANES {
@@ -139,6 +153,9 @@ impl<A: Arch> Iterator for RowIter<A> {
     }
 }
 
+/// A simd iterator that iterates through the non-fastest changing 
+/// values (all axes other than the x axis). These values usually do
+/// not change after every subsequent sample.
 #[derive(Debug)]
 pub struct SliceIter<A: Arch> {
     row_size: usize,
@@ -167,7 +184,7 @@ impl<A: Arch> SliceIter<A> {
     }
 }
 
-#[enable_targets(A)]
+// #[enable_targets(A)]
 impl<A: Arch> Iterator for SliceIter<A> {
     type Item = Simd<f32, A>;
 

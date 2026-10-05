@@ -45,6 +45,15 @@ params_noise_scaling_3d!(BatchNoiseBuilder, [C: Combiner, G: BatchGenerator<3>, 
 
 impl<C: Combiner, G: BatchGenerator<2>> BatchNoise<2, C, G> {
     /// Creates a new builder to easily configure batches of noise.
+    ///
+    /// # Type Parameters
+    /// - `A`: The simd feature set to use.
+    /// - `X`: Simd iterator type for x-inputs.
+    /// - `Y`: Simd iterator type for y-inputs.
+    ///
+    /// # Parameters
+    /// - `x_iter`: Simd iterator for x-inputs.
+    /// - `y_iter`: Simd iterator for y-inputs.
     pub fn builder<A: Arch, X, Y>(
         x_iter: X,
         y_iter: Y,
@@ -93,27 +102,38 @@ where
     }
 }
 
-impl<F: Combiner, S: BatchGenerator<3>> BatchNoise<3, F, S> {
+impl<C: Combiner, G: BatchGenerator<3>> BatchNoise<3, C, G> {
     /// Creates a new builder to easily configure batches of noise.
+    ///
+    /// # Type Parameters
+    /// - `A`: The simd feature set to use.
+    /// - `X`: Simd iterator type for x-inputs.
+    /// - `Y`: Simd iterator type for y-inputs.
+    /// - `Z`: Simd iterator type for z-inputs.
+    ///
+    /// # Parameters
+    /// - `x_iter`: Simd iterator for x-inputs.
+    /// - `y_iter`: Simd iterator for y-inputs.
+    /// - `z_iter`: Simd iterator for z-inputs.
     pub fn builder<A: Arch, X, Y, Z>(
         x_iter: X,
         y_iter: Y,
         z_iter: Z,
-    ) -> BatchNoiseBuilder<3, F, S, A, Zip<(X, Y, Z)>>
+    ) -> BatchNoiseBuilder<3, C, G, A, Zip<(X, Y, Z)>>
     where
         X: Iterator<Item = Simd<f32, A>>,
         Y: Iterator<Item = Simd<f32, A>>,
         Z: Iterator<Item = Simd<f32, A>>,
         Zip<(X, Y, Z)>: DimIter<A, 3>,
     {
-        BatchNoiseBuilder::<3, F, S, A, _>::new(x_iter, y_iter, z_iter)
+        BatchNoiseBuilder::<3, C, G, A, _>::new(x_iter, y_iter, z_iter)
     }
 }
 
-impl<S, F, A, X, Y, Z> BatchNoiseBuilder<3, F, S, A, Zip<(X, Y, Z)>>
+impl<G, C, A, X, Y, Z> BatchNoiseBuilder<3, C, G, A, Zip<(X, Y, Z)>>
 where
-    S: BatchGenerator<3>,
-    F: Combiner,
+    G: BatchGenerator<3>,
+    C: Combiner,
     A: Arch,
     X: Iterator<Item = Simd<f32, A>>,
     Y: Iterator<Item = Simd<f32, A>>,
@@ -125,14 +145,14 @@ where
             noise_config: Default::default(),
             combiner_config: Default::default(),
             iters: multizip((x_iter, y_iter, z_iter)),
-            _noise_type: PhantomData::<S>,
+            _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
         }
     }
 
     pub fn from_configs(
         noise_config: NoiseConfig<3>,
-        combiner_config: F::Config,
+        combiner_config: C::Config,
         x_iter: X,
         y_iter: Y,
         z_iter: Z,
@@ -141,14 +161,14 @@ where
             noise_config,
             combiner_config,
             iters: multizip((x_iter, y_iter, z_iter)),
-            _noise_type: PhantomData::<S>,
+            _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
         }
     }
 }
 
-impl<const D: usize, F: Combiner, S: BatchGenerator<D>, A: Arch, I: DimIter<A, D>>
-    BatchNoiseBuilder<D, F, S, A, I>
+impl<const D: usize, C: Combiner, G: BatchGenerator<D>, A: Arch, I: DimIter<A, D>>
+    BatchNoiseBuilder<D, C, G, A, I>
 {
     declare_fill!(self, output, {
         if self.noise_config.initialize {
@@ -169,41 +189,6 @@ impl<const D: usize, F: Combiner, S: BatchGenerator<D>, A: Arch, I: DimIter<A, D
     declare_build!(self, { self.into_iter().collect() });
 
     declare_into_iter!(A, self, {
-        BatchNoise::<D, F, S>::sample(self.noise_config, self.combiner_config, self.iters)
+        BatchNoise::<D, C, G>::sample(self.noise_config, self.combiner_config, self.iters)
     });
 }
-
-// #[enable_targets(A)]
-// impl<const D: usize, F: Combiner, S: BatchGenerator<D>, A: Arch, I: DimIter<A, D>>
-//     BatchNoiseBuilder<D, F, S, A, I>
-// {
-//     /// Creates the noise and puts the result in a given slice.
-//     pub fn fill(self, output: &mut [f32]) {
-//         if self.noise_config.initialize {
-//             for (i, x) in self.into_iter().enumerate() {
-//                 x.copy_to_slice(&mut output[i * Simd::<f32, A>::LANES..]);
-//             }
-//         } else {
-//             let mut i = 0;
-//             for x in self.into_iter() {
-//                 let cur = Simd::from_slice(&output[i..]);
-//                 let x = cur + x;
-//                 x.copy_to_slice(&mut output[i..]);
-//                 i += Simd::<f32, A>::LANES;
-//             }
-//         }
-//     }
-//
-//
-//     /// Allocates a Vec and fills it with the noise result.
-//     pub fn build(self) -> Vec<f32> {
-//         self.into_iter.collect()
-//     }
-//
-//     /// Returns an iterator containing chunks of the noise output.
-//     /// Ideal for managing streams of noise without unnecessary read/writes.
-//     #[allow(clippy::should_implement_trait)]
-//     pub fn into_iter(self) -> impl Iterator<Item = crate::simd::Simd<f32, A>> {
-//         BatchNoise::<D, F, S>::sample(self.noise_config, self.combiner_config, self.iters)
-//     }
-// }

@@ -74,7 +74,7 @@ pub trait BatchGenerator<const D: usize> {
 ///     .build();
 /// ```
 #[derive(Default)]
-pub struct BatchNoise<const D: usize, F: Combiner, S: BatchGenerator<D>> {
-    _fractal: PhantomData<F>,
-    _sampler: PhantomData<S>,
+pub struct BatchNoise<const D: usize, C: Combiner, G: BatchGenerator<D>> {
+    _fractal: PhantomData<C>,
+    _sampler: PhantomData<G>,
 }

@@ -14,11 +14,11 @@ fn main() {
         .builder::<Fbm, Perlin>()
         .octaves(1)
         .into_iter()
-        .to_grayscale_image(2048, 2048, "noise_images/single_pass_perlin.png");
+        .to_grayscale_image(256, 256, "noise_images/single_pass_perlin.png");
 
     // Domain warping
     let iter1 = grid_2d
-        .builder::<Fbm, Perlin>()
+        .builder::<Fbm, Value>()
         .seed(0)
         .octaves(6)
         .frequency(1.0 / 512.0)
