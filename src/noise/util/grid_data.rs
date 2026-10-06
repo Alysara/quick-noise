@@ -6,6 +6,22 @@ use crate::noise::util::grid_helpers::{Arena, configure_tiling, fill_grid_indice
 use crate::simd::Arch;
 use crate::simd::register::Simd;
 
+
+enum DistanceFunction {
+    /// Standard straight-line distance: sqrt(x^2 + y^2 + ...).
+    Euclidan,
+    /// Squared Euclidean distance (faster, skips sqrt).
+    EuclidanSquared,
+    /// EuclideanSquared + Manhattan combined. Produces organic, rounded cell shapes.
+    Hybrid,
+    /// Sum of absolute axis differences: |x| + |y| + ... Produces diamond-shaped cells.
+    Manhattan,
+    /// Maximum absolute difference along any single axis. Produces square-shaped cells.
+    MaxAxis,
+    /// Generalised distance metric parameterised by P. P=1 is Manhattan, P=2 is Euclidean.
+    Minwoski,
+}
+
 pub(crate) struct CellularGridData<'a, const D: usize> {
     pub total_size: usize,
     pub weight: f32,
@@ -15,6 +31,7 @@ pub(crate) struct CellularGridData<'a, const D: usize> {
     pub octave_tiling: [Option<u32>; D],
     pub distances: [&'a mut [MaybeUninit<f32>]; D],
     pub grid_indices: [&'a mut [MaybeUninit<u32>]; D],
+    pub distance_func: DistanceFunction,
 }
 
 impl<'a, const D: usize> CellularGridData<'a, D> {
@@ -23,6 +40,7 @@ impl<'a, const D: usize> CellularGridData<'a, D> {
         params: &GridNoiseParams<D>,
         arena: &mut Arena<'a>,
         padded_size: &[usize; D],
+        distance_func: DistanceFunction
     ) -> Self {
         let lanes = Simd::<f32, A>::LANES;
 
@@ -74,6 +92,7 @@ impl<'a, const D: usize> CellularGridData<'a, D> {
             octave_tiling,
             distances,
             grid_indices,
+            distance_func,
         }
     }
 }
