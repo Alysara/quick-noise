@@ -2,22 +2,29 @@ All changes in `quick-noise` are documented here.
 
 ## Unreleased
 
-## 0.3.0 - 2026-10-06
+## 0.3.0 - In development
 
 ### Added
 - Generator for 2D Cellular grid noise. ([#12](https://github.com/Alysara/quick-noise/pull/12) by [@Qubittly](https://github.com/Qubittly))
-- `exp`, `exp2`, `log2`, and `pow`, along with unchecked variants to the simd module (simply-simd).
 
 ### Changed
 - **Breaking change**: Converted to fractional (float) input positions for the Grid API. ([#13](https://github.com/Alysara/quick-noise/pull/13) by [@PPakalns](https://github.com/PPakalns))
-- **Breaking change**: `simd_neq` renamed to `simd_ne`.
+- **Breaking change**: Renamed
 - Performance improvements to Value and Perlin grid noise.
 - Significant performance improvements to batch noise iterator inlining.
 
 ### Fixed
 - Incorrect cellular noise result for scalar fallback.
-- Missing octave pass for regular grid noise sampler where octaves > 2. Combiner config structs wrongfully kept private. ## 0.2.0 - 2026-07-25 ### Added Runtime feature selection support.
- Changed - **Breaking change**: Combiner implementations now use generics for SIMD features.
+- Missing octave pass for regular grid noise sampler where octaves > 2.
+- Combiner config structs wrongfully kept private.
+
+## 0.2.0 - 2026-07-25
+
+### Added
+- Runtime feature selection support.
+
+### Changed
+- **Breaking change**: Combiner implementations now use generics for SIMD features.
 - **Breaking change**: ArchSimd changed to StaticSimd, and other SIMD changes.
 - Simd module split into the simply-simd crate. Simd can still be used like before through quick-noise.
 
