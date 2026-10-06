@@ -15,7 +15,7 @@ impl<A: Arch> Grid<2, A> {
     pub fn x_iter(&self) -> RowIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        RowIter::new(dim[0], dim[1], pos[0])
+        RowIter::new(dim[0], dim[1], pos[0] as f32)
     }
 
     /// Creates a simd iterator of the y values when iterating
@@ -24,7 +24,7 @@ impl<A: Arch> Grid<2, A> {
     pub fn y_iter(&self) -> SliceIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        SliceIter::new(dim[0], dim[1], 1, pos[1])
+        SliceIter::new(dim[0], dim[1], 1, pos[1] as f32)
     }
 }
 
@@ -35,7 +35,7 @@ impl<A: Arch> Grid<3, A> {
     pub fn x_iter(&self) -> RowIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        RowIter::new(dim[0], dim[1] * dim[2], pos[0])
+        RowIter::new(dim[0], dim[1] * dim[2], pos[0] as f32)
     }
 
     /// Creates a simd iterator of the y values when iterating
@@ -44,7 +44,7 @@ impl<A: Arch> Grid<3, A> {
     pub fn y_iter(&self) -> SliceIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        SliceIter::new(dim[0], dim[1], dim[2], pos[1])
+        SliceIter::new(dim[0], dim[1], dim[2], pos[1] as f32)
     }
 
     /// Creates a simd iterator of the z values when iterating
@@ -53,7 +53,7 @@ impl<A: Arch> Grid<3, A> {
     pub fn z_iter(&self) -> SliceIter<A> {
         let pos = self.config.position;
         let dim = self.config.grid_size;
-        SliceIter::new(dim[0] * dim[1], dim[2], 1, pos[2])
+        SliceIter::new(dim[0] * dim[1], dim[2], 1, pos[2] as f32)
     }
 }
 

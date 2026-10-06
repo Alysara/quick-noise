@@ -16,7 +16,7 @@ pub struct GridNoiseParams<const D: usize> {
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
     pub grid_size: [usize; D],
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
-    pub position: [f32; D],
+    pub position: [f64; D],
     #[cfg_attr(feature = "serde", serde(with = "serde_arrays"))]
     pub frequency: [f32; D],
     pub weight: f32,
@@ -104,12 +104,12 @@ impl<A: Arch> Grid<2, A> {
     /// A 32x32 grid at position `{ 1, 2 }` covers samples in the range `{ 32..64, 64..96 }`.
     ///
     /// # Default:
-    /// `0`: x
-    /// `0`: y
-    pub fn grid_position(mut self, x: f32, y: f32) -> Self {
+    /// `0.0`: x
+    /// `0.0`: y
+    pub fn grid_position(mut self, x: f64, y: f64) -> Self {
         self.config.position = [
-            x * self.config.grid_size[0] as f32,
-            y * self.config.grid_size[1] as f32,
+            x * self.config.grid_size[0] as f64,
+            y * self.config.grid_size[1] as f64,
         ];
         self
     }
@@ -119,9 +119,9 @@ impl<A: Arch> Grid<2, A> {
     /// `{ 32, 16 }` covers samples in the range `{ 32..64, 16..48 }`.
     ///
     /// # Default:
-    /// `0`: x
-    /// `0`: y
-    pub fn sample_position(mut self, x: f32, y: f32) -> Self {
+    /// `0.0`: x
+    /// `0.0`: y
+    pub fn sample_position(mut self, x: f64, y: f64) -> Self {
         self.config.position = [x, y];
         self
     }
@@ -162,14 +162,14 @@ impl<A: Arch> Grid<3, A> {
     /// `{ 32..64, 64..96, 96..128 }`.
     ///
     /// # Default:
-    /// `0`: x
-    /// `0`: y
-    /// `0`: z
-    pub fn grid_position(mut self, x: f32, y: f32, z: f32) -> Self {
+    /// `0.0`: x
+    /// `0.0`: y
+    /// `0.0`: z
+    pub fn grid_position(mut self, x: f64, y: f64, z: f64) -> Self {
         self.config.position = [
-            x * self.config.grid_size[0] as f32,
-            y * self.config.grid_size[1] as f32,
-            z * self.config.grid_size[2] as f32,
+            x * self.config.grid_size[0] as f64,
+            y * self.config.grid_size[1] as f64,
+            z * self.config.grid_size[2] as f64,
         ];
         self
     }
@@ -179,10 +179,10 @@ impl<A: Arch> Grid<3, A> {
     /// `{ 32, 16, 0 }` covers samples in the range `{ 32..64, 16..48, 0..32 }`.
     ///
     /// # Default:
-    /// `0`: x
-    /// `0`: y
-    /// `0`: z
-    pub fn sample_position(mut self, x: f32, y: f32, z: f32) -> Self {
+    /// `0.0`: x
+    /// `0.0`: y
+    /// `0.0`: z
+    pub fn sample_position(mut self, x: f64, y: f64, z: f64) -> Self {
         self.config.position = [x, y, z];
         self
     }

@@ -73,8 +73,8 @@ Combiners specify *how* that noise is applied across multiple octaves (noise pas
 
 ## Grid Noise
 
-Grid noise is called through a grid region. Each noise call takes into account both the grid seed and the seed of the noise call,
-making it easier to have multiple noise maps with the same primary seed.
+Grid noise is called through a grid region. All of the samples inside of this region are
+generated all at once in a single call.
 
 ```rust
 use quick_noise::{Grid, Fbm, Perlin};
@@ -82,7 +82,7 @@ use quick_noise::{Grid, Fbm, Perlin};
 // Creates an anchor into a region of sample space.
 let grid = Grid::<2>::new(1000, 1000); // Specify a 2D 1000x1000 grid.
     
-// Creates 1,000,000 samples all at once very quickly.
+// Creates 1,000,000 samples.
 let results: Vec<f32> = grid.builder::<Fbm, Perlin>()
     .octaves(6)      // Number of noise passes.
     .frequency(0.01) // How fast the noise changes across sample space.
@@ -103,16 +103,16 @@ let mut result = [0.0; 1024];
 
 // FBM Grid noise with all parameters.
 let noise = grid.builder::<Fbm, Perlin>()
-    .seed(0)
-    .octaves(1)
-    .frequency(0.03125)
-    .lacunarity(2.0)
-    .persistence(0.5)
-    .amplitude(1.0)
-    .normalization(true)
-    .scaling(1.0, 1.0)
-    .initialize(true) // Setting to false adds noise to current values.
-    .finalize(true)   // Some combiners have a finalization stage.
+    .seed(0)             // Acts a second seed in combination with the grid's seed.
+    .octaves(1)          // Number of noise passes.
+    .frequency(0.03125)  // How fast the noise changes across sample space.
+    .lacunarity(2.0)     // Multiplier to the frequency after each subsequent octave.
+    .persistence(0.5)    // Multiplier to the weight after each subsequent octave.
+    .amplitude(1.0)      // The maximum absolute value the noise can produce (For Fbm).
+    .normalization(true) // Whether or not to normalize the output.
+    .scaling(1.0, 1.0)   // How much is the noise stretched in each dimension.
+    .initialize(true)    // Setting to false adds noise to current values.
+    .finalize(true)      // Some combiners have a finalization stage.
     .fill(result.as_mut_slice());
 ```
 
