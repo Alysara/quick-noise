@@ -68,7 +68,7 @@ fn batch_2d<A: Arch>() {
         .octaves(6)
         .fill(tiny_result.as_mut_slice());
     verify_slice(tiny_result.as_slice());
-    BatchNoise::<2, Fbm, Cellular>::builder(tiny_grid.x_iter(), tiny_grid.y_iter())
+    BatchNoise::<2, Fbm, Cellular<Euclidean>>::builder(tiny_grid.x_iter(), tiny_grid.y_iter())
         .octaves(6)
         .fill(tiny_result.as_mut_slice());
     verify_slice(tiny_result.as_slice());
@@ -85,7 +85,7 @@ fn batch_2d<A: Arch>() {
         .octaves(6)
         .fill(medium_result.as_mut_slice());
     verify_slice(medium_result.as_slice());
-    BatchNoise::<2, Fbm, Cellular>::builder(medium_grid.x_iter(), medium_grid.y_iter())
+    BatchNoise::<2, Fbm, Cellular<Euclidean>>::builder(medium_grid.x_iter(), medium_grid.y_iter())
         .octaves(6)
         .fill(medium_result.as_mut_slice());
     verify_slice(medium_result.as_slice());
@@ -102,7 +102,7 @@ fn batch_2d<A: Arch>() {
         .octaves(6)
         .fill(large_result.as_mut_slice());
     verify_slice(large_result.as_slice());
-    BatchNoise::<2, Fbm, Cellular>::builder(large_grid.x_iter(), large_grid.y_iter())
+    BatchNoise::<2, Fbm, Cellular<Euclidean>>::builder(large_grid.x_iter(), large_grid.y_iter())
         .octaves(6)
         .fill(large_result.as_mut_slice());
     verify_slice(large_result.as_slice());
@@ -119,7 +119,7 @@ fn batch_2d<A: Arch>() {
         .octaves(6)
         .fill(medium_result.as_mut_slice());
     verify_slice(medium_result.as_slice());
-    BatchNoise::<2, Multi, Cellular>::builder(medium_grid.x_iter(), medium_grid.y_iter())
+    BatchNoise::<2, Multi, Cellular<Euclidean>>::builder(medium_grid.x_iter(), medium_grid.y_iter())
         .octaves(6)
         .fill(medium_result.as_mut_slice());
     verify_slice(medium_result.as_slice());
@@ -144,7 +144,7 @@ fn batch_2d<A: Arch>() {
     black_box(&noise);
 
     let noise: [f32; 1234] =
-        BatchNoise::<2, Multi, Cellular>::builder(values1.simd_iter::<A>(), values2.simd_iter())
+        BatchNoise::<2, Multi, Cellular<Euclidean>>::builder(values1.simd_iter::<A>(), values2.simd_iter())
             .octaves(10)
             .frequency(0.01)
             .scaling(0.5, 2.0)
@@ -209,7 +209,7 @@ fn batch_3d<A: Arch>() {
     .octaves(6)
     .fill(tiny_result.as_mut_slice());
     verify_slice(tiny_result.as_slice());
-    BatchNoise::<3, Fbm, Cellular>::builder(
+    BatchNoise::<3, Fbm, Cellular<Euclidean>>::builder(
         tiny_grid.x_iter(),
         tiny_grid.y_iter(),
         tiny_grid.z_iter(),
@@ -242,7 +242,7 @@ fn batch_3d<A: Arch>() {
     .octaves(6)
     .fill(medium_result.as_mut_slice());
     verify_slice(medium_result.as_slice());
-    BatchNoise::<3, Fbm, Cellular>::builder(
+    BatchNoise::<3, Fbm, Cellular<Euclidean>>::builder(
         medium_grid.x_iter(),
         medium_grid.y_iter(),
         medium_grid.z_iter(),
@@ -275,7 +275,7 @@ fn batch_3d<A: Arch>() {
     .octaves(6)
     .fill(large_result.as_mut_slice());
     verify_slice(large_result.as_slice());
-    BatchNoise::<3, Fbm, Cellular>::builder(
+    BatchNoise::<3, Fbm, Cellular<Euclidean>>::builder(
         large_grid.x_iter(),
         large_grid.y_iter(),
         large_grid.z_iter(),
@@ -308,7 +308,7 @@ fn batch_3d<A: Arch>() {
     .octaves(6)
     .fill(medium_result.as_mut_slice());
     verify_slice(medium_result.as_slice());
-    BatchNoise::<3, Multi, Cellular>::builder(
+    BatchNoise::<3, Multi, Cellular<Euclidean>>::builder(
         medium_grid.x_iter(),
         medium_grid.y_iter(),
         medium_grid.z_iter(),
@@ -344,7 +344,7 @@ fn batch_3d<A: Arch>() {
     .collect();
     black_box(&noise);
 
-    let noise: [f32; 1234] = BatchNoise::<3, Multi, Cellular>::builder(
+    let noise: [f32; 1234] = BatchNoise::<3, Multi, Cellular<Euclidean>>::builder(
         values1.simd_iter::<A>(),
         values2.simd_iter(),
         values3.simd_iter(),

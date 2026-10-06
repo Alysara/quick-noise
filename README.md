@@ -233,16 +233,17 @@ This simd module can support most basic operations, and can be used directly to 
 
 ```rust
 use quick_noise::{Grid, BatchNoise, Ridged, Cellular};
+use quick_noise::Euclidean;
 use quick_noise::simd::StaticSimd;
 use std::iter::zip;
 
 let grid = Grid::<2>::new(128, 128).grid_position(0.0, 0.0);
 
-let iter_1 = BatchNoise::<2, Ridged, Cellular>::builder(grid.x_iter(), grid.y_iter())
+let iter_1 = BatchNoise::<2, Ridged, Cellular<Euclidean>>::builder(grid.x_iter(), grid.y_iter())
     .seed(0)
     .into_iter();
 
-let iter_2 = BatchNoise::<2, Ridged, Cellular>::builder(grid.x_iter(), grid.y_iter())
+let iter_2 = BatchNoise::<2, Ridged, Cellular<Euclidean>>::builder(grid.x_iter(), grid.y_iter())
     .seed(1)
     .into_iter();
 
