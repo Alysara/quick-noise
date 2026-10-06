@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
 
-use simply_simd::{Arch, Mask, Simd, SimdToArray, enable_targets};
+use simply_simd::{Arch, Mask, Simd, SimdToArray};
 
 use crate::Grid;
 

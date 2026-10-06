@@ -197,8 +197,8 @@ pub(crate) struct SimplexGridData<const D: usize> {
     /// Position of the first sample in output space (`position * increment`).
     pub origin: [f32; D],
     /// Skewed lattice index `(i0, j0)` that the first sample (`origin`) falls into.
-    pub grid_start: [i32; D],
-    pub octave_tiling: [Option<u32>; D],
+    pub _grid_start: [i32; D],
+    pub _octave_tiling: [Option<u32>; D],
 }
 
 impl<const D: usize> SimplexGridData<D> {
@@ -210,9 +210,9 @@ impl<const D: usize> SimplexGridData<D> {
 
         // Skew the region's first sample to locate the enclosing lattice cell.
         let s = origin.iter().sum::<f32>() * SKEW_2D;
-        let grid_start = from_fn(|i| (origin[i] + s).floor() as i32);
+        let _grid_start = from_fn(|i| (origin[i] + s).floor() as i32);
 
-        let octave_tiling = configure_tiling(params);
+        let _octave_tiling = configure_tiling(params);
 
         Self {
             total_size,
@@ -220,14 +220,14 @@ impl<const D: usize> SimplexGridData<D> {
             grid_size: params.grid_size,
             increment,
             origin,
-            grid_start,
-            octave_tiling,
+            _grid_start,
+            _octave_tiling,
         }
     }
 
     /// Skew a sample-space coordinate into the skewed lattice coordinate space `(i, j, ...)`.
     #[inline(always)]
-    pub fn skew(&self, coords: &[f32; D]) -> [f32; D] {
+    pub fn _skew(&self, coords: &[f32; D]) -> [f32; D] {
         let s = coords.iter().sum::<f32>() * SKEW_2D;
         from_fn(|i| coords[i] + s)
     }

@@ -4,7 +4,7 @@ use crate::api::batch::interface::{BatchGenerator, BatchNoise, DimIter, DimTuple
 use crate::api::configs::*;
 use crate::api::seed::gen_octave_seed;
 use crate::noise::combiners::Combiner;
-use crate::simd::{Arch, Simd, enable_targets};
+use crate::simd::{Arch, Simd};
 
 const MAX_FBM_OCTAVES: usize = 32;
 

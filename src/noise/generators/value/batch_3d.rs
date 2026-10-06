@@ -1,4 +1,4 @@
-use simply_simd::{Arch, Simd, enable_targets};
+use simply_simd::{Arch, Simd};
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Value;
