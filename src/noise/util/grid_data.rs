@@ -61,7 +61,7 @@ impl<'a, const D: usize> GridData<'a, D> {
         for (grid, frac) in grid_start.iter_mut().zip(frac_start.iter_mut()) {
             if *frac >= 1.0 {
                 *frac = 0.0;
-                *grid -= 1;
+                *grid += 1;
             }
         }
 
