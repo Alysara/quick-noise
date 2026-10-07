@@ -3,9 +3,11 @@ use quick_noise::simd::StaticSimd;
 use quick_noise::{
     BatchNoise, Cellular, Fbm, Grid, HybridMulti, Octave, Perlin, PingPong, Ridged, Simplex, Value,
 };
+use quick_noise::Euclidean;
 
 #[cfg(feature = "image")]
 fn main() {
+
     let grid_2d = Grid::<2>::new(2048, 2048);
     let grid_3d = Grid::<3>::new(256, 256, 256);
 
@@ -39,7 +41,7 @@ fn main() {
         .to_grayscale_image(2048, 2048, "noise_images/warped.png");
 
     // Cellular batch noise.
-    BatchNoise::<2, Ridged, Cellular>::builder(grid_2d.x_iter(), grid_2d.y_iter())
+    BatchNoise::<2, Ridged, Cellular<Euclidean>>::builder(grid_2d.x_iter(), grid_2d.y_iter())
         .octaves(6)
         .frequency(1.0 / 512.0)
         .gain(1.5)
