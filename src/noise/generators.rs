@@ -1,3 +1,5 @@
+use std::marker::PhantomData;
+
 /// Smooth organic gradient noise using Ken Perlin's algorithm.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct Perlin {}
@@ -27,8 +29,10 @@ pub mod simplex {
     pub mod grid_2d;
 }
 
-// Cellualar noise configuration trait for config structs
-pub trait CellularConfig {}
+// Cellular noise distance function trait for function structs
+pub trait DistanceFn: Default + Copy + Clone + PartialEq {
+    type Config: Copy + Default;
+}
 /// Standard straight-line distance: sqrt(x^2 + y^2 + ...).
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct Euclidean;
@@ -38,29 +42,51 @@ pub struct EuclideanSquared;
 /// EuclideanSquared + Manhattan combined. Produces organic, rounded cell shapes.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct Hybrid;
-/// Sum of absolute axis differences: |x| + |y| + ... Produces diamond-shaped cells.
+/// Sum of absolute axis differences: `|x| + |y| + ...`. Produces diamond-shaped cells.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct Manhattan;
 /// Maximum absolute difference along any single axis. Produces square-shaped cells.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct MaxAxis;
-/// Generalised distance metric parameterised by P. P=1 is Manhattan, P=2 is Euclidean, P=infinity is Chebyshev Distance.
+/// Generalised distance metric parameterised by P. P=1 is Manhattan, P=2 is Euclidean,
+/// P=infinity is Chebyshev Distance.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
-pub struct Minwoski {
-    p: u32,
+pub struct Minwoski;
+
+#[derive(Copy, Clone, PartialEq, Debug)]
+pub struct MinkowskiConfig {
+    pub p: f32,
 }
 
-impl CellularConfig for Euclidean{}
-impl CellularConfig for EuclideanSquared{}
-impl CellularConfig for Hybrid{}
-impl CellularConfig for Manhattan{}
-impl CellularConfig for MaxAxis{}
-impl CellularConfig for Minwoski{}
+impl Default for MinkowskiConfig {
+    fn default() -> Self {
+        Self { p: 2.0 }
+    }
+}
+
+impl DistanceFn for Euclidean {
+    type Config = ();
+}
+impl DistanceFn for EuclideanSquared {
+    type Config = ();
+}
+impl DistanceFn for Hybrid {
+    type Config = ();
+}
+impl DistanceFn for Manhattan {
+    type Config = ();
+}
+impl DistanceFn for MaxAxis {
+    type Config = ();
+}
+impl DistanceFn for Minwoski {
+    type Config = MinkowskiConfig;
+}
 
 /// Cell-like noise created by the distance between each sample and its nearest node.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
-pub struct Cellular<C: CellularConfig> {
-    distance_config: C,
+pub struct Cellular<D: DistanceFn> {
+    _distance: PhantomData<D>,
 }
 
 pub mod cellular {

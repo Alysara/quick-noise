@@ -303,7 +303,7 @@ impl GridGenerator<2> for Cellular<Euclidean> {
                     x_it,
                 );
 
-                grid_cellular_fill::<A, C, INIT, FINAL>(
+                euclidean_fill::<A, C, INIT, FINAL>(
                     &grid_data,
                     &cell_jitters,
                     x_idx,
@@ -336,7 +336,7 @@ impl GridGenerator<2> for Cellular<Euclidean> {
 }
 
 #[inline(always)]
-fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
+fn euclidean_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
     grid_data: &CellularGridData<2>,
     jit: &CellJitters,
     x_idx: usize,
@@ -370,7 +370,7 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
 
         let mut index = x_idx;
         while index + lanes <= x_next {
-            grid_cellular_fill_block::<A, C, INIT, FINAL, false>(
+            euclidean_fill_block::<A, C, INIT, FINAL, false>(
                 grid_data,
                 jit,
                 &dysq,
@@ -386,7 +386,7 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             index += lanes;
         }
         if index < x_next {
-            grid_cellular_fill_block::<A, C, INIT, FINAL, true>(
+            euclidean_fill_block::<A, C, INIT, FINAL, true>(
                 grid_data,
                 jit,
                 &dysq,
@@ -404,7 +404,7 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
 }
 
 #[inline(always)]
-fn grid_cellular_fill_block<
+fn euclidean_fill_block<
     A: Arch,
     C: Combiner,
     const INIT: bool,
