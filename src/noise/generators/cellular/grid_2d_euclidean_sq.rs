@@ -4,7 +4,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{ Combiner, CombinerState };
-use crate::noise::generators::Euclidean;
+use crate::noise::generators::EuclideanSquared;
 use crate::noise::util::grid_data::CellularGridData;
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 use crate::noise::util::grid_helpers::{
@@ -12,8 +12,7 @@ use crate::noise::util::grid_helpers::{
     validate_grid_size, validate_state_size, simd_rem_euclid_i32,
 };
 use crate::{
-    Cellular,
-    GridGenerator
+    Cellular, GridGenerator
 };
 
 /// Candidate offsets for the 12 candidates (4 base + 8 ring). The ring is
@@ -231,7 +230,7 @@ impl CellJitters {
 }
 
 #[enable_targets(A)]
-impl GridGenerator<2> for Cellular<Euclidean> {
+impl GridGenerator<2> for Cellular<EuclideanSquared> {
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         combiner: C::Config,
@@ -475,7 +474,7 @@ fn euclidean_fill_block<
         }
     }
 
-    let raw_val = min_sq.sqrt() * weight_vec;
+    let raw_val = min_sq * weight_vec;
 
     let (cur_state, mut result) = if INIT {
         C::initialize_sample(combiner_config, raw_val)
@@ -526,7 +525,7 @@ mod tests {
     fn cellular_grid_2d_sanity() {
         let grid = Grid::<2>::new(32, 32);
         let mut result = [0.0; 1024];
-        grid.builder::<Fbm, Cellular<Euclidean>>().fill(result.as_mut_slice());
+        grid.builder::<Fbm, Cellular<EuclideanSquared>>().fill(result.as_mut_slice());
         verify_slice(result.as_slice());
     }
 
@@ -577,7 +576,7 @@ mod tests {
         let octave_seed = gen_octave_seed([freq, freq], base_seed);
 
         let mut result = vec![0.0; w * h];
-        grid.builder::<Fbm, Cellular<Euclidean>>()
+        grid.builder::<Fbm, Cellular<EuclideanSquared>>()
             .frequency(freq)
             .fill(result.as_mut_slice());
 
@@ -593,12 +592,12 @@ mod tests {
         }
         assert!(
             max_diff < 1e-4,
-            "Grid cellular at freq {freq} diverges from the brute-force Cellular by {max_diff}"
+            "Grid cellular at freq {freq} diverges from the batch Cellular by {max_diff}"
         );
     }
 
     fn reference(seed: u32, px: f32, py: f32, freq: f32) -> f32 {
-        let gain = Cellular::<Euclidean>::sample_batch::<StaticArch>(
+        let gain = Cellular::<EuclideanSquared>::sample_batch::<StaticArch>(
             seed,
             [Simd::splat(px), Simd::splat(py)],
             [Simd::splat(freq), Simd::splat(freq)]

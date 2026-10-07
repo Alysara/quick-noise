@@ -90,7 +90,9 @@ pub struct Cellular<D: DistanceFn> {
 }
 
 pub mod cellular {
-    pub mod batch_2d;
+    pub mod batch_2d_euclidean;
+    pub mod batch_2d_euclidean_sq;
     pub mod batch_3d;
-    pub mod grid_2d;
+    pub mod grid_2d_euclidean;
+    pub mod grid_2d_euclidean_sq;
 }
