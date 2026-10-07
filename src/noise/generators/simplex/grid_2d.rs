@@ -1,4 +1,3 @@
-use std::f32::consts::SQRT_2;
 use simply_simd::{ Arch, Mask, Simd, enable_targets };
 
 use crate::api::grid::interface::GridNoiseParams;
@@ -11,34 +10,22 @@ use crate::noise::util::grid_helpers::{
     validate_state_size,
 };
 use crate::{ GridGenerator, Simplex };
-
-const SQRT_3: f32 = 1.732_050_8;
-const SKEW_2D: f32 = (SQRT_3 - 1.0) / 2.0;
-const UNSKEW_2D: f32 = (3.0 - SQRT_3) / 6.0;
-
-const SCALE: f32 = 80.0;
-const SCALED_SQRT: f32 = (SQRT_2 / 2.0) * SCALE;
-
-const A: f32 = SCALE;
-const B: f32 = SCALED_SQRT;
-const C: f32 = 0.0;
-const X_GRADIENTS_2D: [f32; 8] = [A, B, C, -B, -A, -B,  C,  B];
-const Y_GRADIENTS_2D: [f32; 8] = [C, B, A,  B,  C, -B, -A, -B];
-
-const PRIME: u32 = 0x85ebca6b;
-const BYTE_SHUFFLE: [u8; 64] = [
-    3, 0, 2, 1,  7, 4, 6, 5,  11, 8, 10, 9,  15, 12, 14, 13, 
-    3, 0, 2, 1,  7, 4, 6, 5,  11, 8, 10, 9,  15, 12, 14, 13, 
-    3, 0, 2, 1,  7, 4, 6, 5,  11, 8, 10, 9,  15, 12, 14, 13, 
-    3, 0, 2, 1,  7, 4, 6, 5,  11, 8, 10, 9,  15, 12, 14, 13,
-];
+use crate::noise::util::constants::{
+    BYTE_SHUFFLE,
+    HASH_PRIME,
+    X_GRADIENTS_2D,
+    Y_GRADIENTS_2D,
+    SKEW_2D,
+    UNSKEW_2D,
+    SQRT_3,
+};
 
 /// Resolves the gradient of a single lattice vertex `(i, j)`. Used only by the
 /// scalar tail of a row
 #[inline(always)]
 fn gradient<A: Arch>(i: i32, j: i32, seed: u32) -> (f32, f32) {
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
-    let prime = Simd::<u32, A>::splat(PRIME);
+    let prime = Simd::<u32, A>::splat(HASH_PRIME);
     let x_shuf = (
         Simd::<u32, A>::splat((i as u32).wrapping_mul(seed)).permute_8(shuffle_indices) ^ prime
     ).to_array()[0];
@@ -210,7 +197,7 @@ fn simplex_fill_row<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
 
     // Hash constants.
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
-    let prime = Simd::<u32, A>::splat(PRIME);
+    let prime = Simd::<u32, A>::splat(HASH_PRIME);
     let seed_v = Simd::<u32, A>::splat(seed);
 
     let mut ox = 0;
