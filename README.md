@@ -68,7 +68,7 @@ Note that grid noise is an exception to this rule, but makes up for it many time
 ## Combiners and Generators
 
 Generators are structs that define how to generate noise. This includes `Perlin`, `Value`, `Simplex`, and `Cellular`.
-Combiners specify *how* that noise is applied across multiple octaves (noise passes). This includes
+Combiners specify how that noise is applied across multiple octaves (noise passes). This includes
 `Fbm`, `Billow`, `Ridged`, `Multi`, `HybridMulti`, `Terrace`, and `PingPong`. Combiners apply to both batch and grid noise.
 
 ## Grid Noise

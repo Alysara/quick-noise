@@ -3,11 +3,11 @@ use std::marker::PhantomData;
 use crate::noise::combiners::Combiner;
 use crate::simd::{Arch, Simd};
 
-/// Zipped iterator type used for generically handling
-/// `D` iterators.
+/// Tuple of `D` f32 simd registers that can be unpacked
+/// into an array of size `D`. Useful for handling zipped simd
+/// iterators of various dimensions generically.
 pub trait DimTuple<A: Arch, const D: usize> {
-    /// Converts the internal iterator representation
-    /// into a generically sized array.
+    // Unpacks the tuple into an array of `D` simd registers.
     fn into_array(self) -> [Simd<f32, A>; D];
 }
 type S<A> = Simd<f32, A>;
