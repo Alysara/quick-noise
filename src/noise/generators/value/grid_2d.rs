@@ -7,8 +7,12 @@ use crate::GridGenerator;
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
 use crate::noise::generators::Value;
+use crate::noise::util::grid_data::{PVGridData, Lerp};
+use crate::noise::util::grid_helpers::{
+    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt, 
+    pad_grid_size, validate_grid_size, validate_state_size,
+};
 use crate::noise::util::constants::{BYTE_SHUFFLE, VALUE_EXP_MASK, HASH_MASK, HASH_PRIME};
-use crate::noise::util::grid_data::{GridData, Lerp};
 use crate::noise::util::grid_helpers::*;
 
 pub struct ValueGradients2D<'a> {
@@ -58,7 +62,7 @@ impl GridGenerator<2> for Value {
         let bilerp_config = InterpolationConfig::new(num_blocks, params.grid_size[0]);
 
         let mut sub_arena = arena.allocate_arena(padded_size[0] * 3 + padded_size[1] * 3);
-        let mut grid_data = GridData::new::<A, LERP>(&params, &mut sub_arena, &padded_size);
+        let mut grid_data = PVGridData::new::<A, LERP>(&params, &mut sub_arena, &padded_size);
 
         // Allocate scratch buffer for gradients.
         let grad_scratch = arena.allocate(padded_size[0]);
@@ -113,7 +117,7 @@ impl GridGenerator<2> for Value {
 #[inline(always)]
 pub(super) fn fill_gradients_2d<'a, A: Arch>(
     params: &GridNoiseParams<2>,
-    grid_data: &mut GridData<2>,
+    grid_data: &mut PVGridData<2>,
     grad_buffer: &mut [MaybeUninit<f32>],
     left: &'a mut [MaybeUninit<f32>],
     right: &'a mut [MaybeUninit<f32>],
@@ -203,7 +207,7 @@ pub(super) fn fill_gradients_2d<'a, A: Arch>(
 pub(crate) struct BilerpExecuter<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool> {
     config: &'a InterpolationConfig<A>,
     fractal_config: &'a C::Config,
-    grid_data: &'a GridData<'a, 2>,
+    grid_data: &'a PVGridData<'a, 2>,
     gradients: &'a ValueGradients2D<'a>,
     y_range: Range<usize>,
     top: A::Block2<f32>,
@@ -216,7 +220,7 @@ pub(crate) struct BilerpExecuter<'a, A: Arch, C: Combiner, const INIT: bool, con
 pub(super) fn bilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
     config: &InterpolationConfig<A>,
     fractal_config: &C::Config,
-    grid_data: &GridData<2>,
+    grid_data: &PVGridData<2>,
     gradients: &ValueGradients2D,
     y_range: Range<usize>,
     output: (&mut [f32], &mut [f32]),

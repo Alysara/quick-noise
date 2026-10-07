@@ -133,7 +133,7 @@ fn tiled_grid_2d() {
         .fill(result.as_mut_slice());
     verify_slice(result.as_slice());
 
-    grid.builder::<Fbm, Cellular>()
+    grid.builder::<Fbm, Cellular<Euclidean>>()
         .octaves(6)
         .initialize(false)
         .fill(result.as_mut_slice());
@@ -191,7 +191,7 @@ fn test_grid_2d<const N: usize, A: Arch>(grid: Grid<2, A>) {
     grid.builder::<Fbm, Value>().fill(&mut result);
     verify_slice(result.as_slice());
 
-    grid.builder::<Fbm, Cellular>().fill(&mut result);
+    grid.builder::<Fbm, Cellular<Euclidean>>().fill(&mut result);
     verify_slice(result.as_slice());
 
     grid.builder::<Billow, Perlin>().fill(&mut result);
@@ -200,7 +200,7 @@ fn test_grid_2d<const N: usize, A: Arch>(grid: Grid<2, A>) {
     grid.builder::<Billow, Value>().octaves(2).fill(&mut result);
     verify_slice(result.as_slice());
 
-    grid.builder::<Billow, Cellular>().octaves(2).fill(&mut result);
+    grid.builder::<Billow, Cellular<Euclidean>>().octaves(2).fill(&mut result);
     verify_slice(result.as_slice());
 
     grid.builder::<Multi, Perlin>().fill(&mut result);
@@ -220,7 +220,7 @@ fn test_grid_2d<const N: usize, A: Arch>(grid: Grid<2, A>) {
     grid.builder::<Ridged, Value>().fill(&mut result);
     verify_slice(result.as_slice());
 
-    grid.builder::<Ridged, Cellular>().fill(&mut result);
+    grid.builder::<Ridged, Cellular<Euclidean>>().fill(&mut result);
     verify_slice(result.as_slice());
 
     let noise1 = grid
@@ -251,7 +251,7 @@ fn test_grid_2d<const N: usize, A: Arch>(grid: Grid<2, A>) {
     black_box(&noise);
 
     let noise: Vec<f32> = grid
-        .warp_builder::<Billow, Cellular>(0.5, noise1.simd_iter(), grid.y_iter())
+        .warp_builder::<Billow, Cellular<Euclidean>>(0.5, noise1.simd_iter(), grid.y_iter())
         .octaves(2)
         .build();
     black_box(&noise);
@@ -332,7 +332,7 @@ fn test_grid_3d<const N: usize, A: Arch>(grid: Grid<3, A>) {
     black_box(&noise);
 
     let noise: Vec<f32> = grid
-        .warp_builder::<Billow, Cellular>(0.5, noise1.simd_iter(), grid.x_iter(), grid.z_iter())
+        .warp_builder::<Billow, Cellular<Euclidean>>(0.5, noise1.simd_iter(), grid.x_iter(), grid.z_iter())
         .octaves(2)
         .build();
     black_box(&noise);
