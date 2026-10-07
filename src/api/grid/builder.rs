@@ -16,6 +16,7 @@ pub struct GridNoiseBuilder<const D: usize, C: Combiner, G: GridGenerator<D>, A:
     grid_config: GridConfig<D>,
     noise_config: NoiseConfig<D>,
     combiner_config: C::Config,
+    generator_config: G::GenConfig,
     _noise_type: PhantomData<G>,
     _arch: PhantomData<A>,
 }
@@ -46,6 +47,7 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch> GridNoiseBuilder
             &self.grid_config,
             &self.noise_config,
             &self.combiner_config,
+            &self.generator_config,
             result.as_mut_slice(),
         );
         result
@@ -56,6 +58,7 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch> GridNoiseBuilder
             &self.grid_config,
             &self.noise_config,
             &self.combiner_config,
+            &self.generator_config,
             result,
         );
     });

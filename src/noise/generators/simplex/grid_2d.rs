@@ -123,9 +123,11 @@ fn simplex_calc_simd<A: Arch>(
 
 #[enable_targets(A)]
 impl GridGenerator<2> for Simplex {
+    type GenConfig = ();
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         combiner: C::Config,
+        _generator_config: <Self as GridGenerator<2>>::GenConfig,
         state: &mut [f32],
         dst: &mut [f32]
     ) {

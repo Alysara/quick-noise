@@ -4,7 +4,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{ Combiner, CombinerState };
-use crate::noise::generators::EuclideanSquared;
+use crate::noise::generators::{self, EuclideanSquared};
 use crate::noise::util::grid_data::CellularGridData;
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 use crate::noise::util::grid_helpers::{
@@ -231,9 +231,11 @@ impl CellJitters {
 
 #[enable_targets(A)]
 impl GridGenerator<2> for Cellular<EuclideanSquared> {
+    type GenConfig = ();
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         combiner: C::Config,
+        _generator_config: <Self as GridGenerator<2>>::GenConfig,
         state: &mut [f32],
         dst: &mut [f32],
     ) {

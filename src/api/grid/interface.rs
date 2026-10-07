@@ -26,6 +26,7 @@ pub struct GridNoiseParams<const D: usize> {
 }
 
 pub trait GridGenerator<const D: usize>: Default + Copy + Clone + PartialEq {
+    type GenConfig: Copy + Default;
     /// Generates noise for a grid region.
     ///
     /// # Type Parameters
@@ -41,6 +42,7 @@ pub trait GridGenerator<const D: usize>: Default + Copy + Clone + PartialEq {
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<D>,
         combiner_config: C::Config,
+        generator_config: Self::GenConfig,
         state: &mut [f32],
         dst: &mut [f32],
     );

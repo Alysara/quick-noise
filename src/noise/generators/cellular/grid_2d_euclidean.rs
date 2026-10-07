@@ -232,9 +232,11 @@ impl CellJitters {
 
 #[enable_targets(A)]
 impl GridGenerator<2> for Cellular<Euclidean> {
+    type GenConfig = ();
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         combiner: C::Config,
+        _generator_config: <Self as GridGenerator<2>>::GenConfig,
         state: &mut [f32],
         dst: &mut [f32],
     ) {
