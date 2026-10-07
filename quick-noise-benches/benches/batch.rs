@@ -5,6 +5,7 @@ use fastnoise2::generator::DistanceFunction;
 use fastnoise2::generator::cellular::CellularDistanceReturnType;
 use fastnoise2::generator::prelude::*;
 use quick_noise::{BatchNoise, Cellular, Fbm, Grid, Perlin, Simplex, Value};
+use quick_noise::{Euclidean};
 const FREQ: f32 = 1.0 / 32.0;
 
 fn batch_benchmark(c: &mut Criterion) {
@@ -35,7 +36,7 @@ fn batch_benchmark(c: &mut Criterion) {
     });
     group.bench_function("cellular", |b| {
         b.iter(|| {
-            BatchNoise::<2, Fbm, Cellular>::builder(grid.x_iter(), grid.y_iter())
+            BatchNoise::<2, Fbm, Cellular<Euclidean>>::builder(grid.x_iter(), grid.y_iter())
                 .octaves(1)
                 .fill(result.as_mut_slice())
         });
@@ -70,7 +71,7 @@ fn batch_benchmark(c: &mut Criterion) {
     });
     group.bench_function("cellular", |b| {
         b.iter(|| {
-            BatchNoise::<3, Fbm, Cellular>::builder(grid.x_iter(), grid.y_iter(), grid.z_iter())
+            BatchNoise::<3, Fbm, Cellular<Euclidean>>::builder(grid.x_iter(), grid.y_iter(), grid.z_iter())
                 .octaves(1)
                 .fill(result.as_mut_slice())
         });

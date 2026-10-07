@@ -2,6 +2,7 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use quick_noise::{Cellular, Fbm, Grid, Perlin, Simplex, Value};
+use quick_noise::Euclidean;
 
 const SCALES: [f32; 11] = [64.0, 48.0, 32.0, 24.0, 16.0, 12.0, 8.0, 6.0, 4.0, 3.0, 2.0];
 
@@ -91,7 +92,7 @@ fn grid_benchmark(c: &mut Criterion) {
 
         group.bench_function(format!("scale: {scale}"), |b| {
             b.iter(|| {
-                grid.builder::<Fbm, Cellular>()
+                grid.builder::<Fbm, Cellular<Euclidean>>()
                     .octaves(1)
                     .frequency(1.0 / scale)
                     .fill(&mut result);

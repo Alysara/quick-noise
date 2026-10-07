@@ -4,13 +4,17 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{ Combiner, CombinerState };
+use crate::noise::generators::Euclidean;
 use crate::noise::util::grid_data::CellularGridData;
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 use crate::noise::util::grid_helpers::{
     Arena, ArenaBuffer, MaybeUninitSliceSimdExt, maybe_tail_load, maybe_tail_store, pad_grid_size,
     validate_grid_size, validate_state_size, simd_rem_euclid_i32,
 };
-use crate::{Cellular, GridGenerator};
+use crate::{
+    Cellular,
+    GridGenerator
+};
 
 /// Candidate offsets for the 12 candidates (4 base + 8 ring). The ring is
 /// grouped by bounding edge and stay aligned with the near/far gate
@@ -227,7 +231,7 @@ impl CellJitters {
 }
 
 #[enable_targets(A)]
-impl GridGenerator<2> for Cellular {
+impl GridGenerator<2> for Cellular<Euclidean> {
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         combiner: C::Config,
@@ -299,7 +303,7 @@ impl GridGenerator<2> for Cellular {
                     x_it,
                 );
 
-                grid_cellular_fill::<A, C, INIT, FINAL>(
+                euclidean_fill::<A, C, INIT, FINAL>(
                     &grid_data,
                     &cell_jitters,
                     x_idx,
@@ -332,7 +336,7 @@ impl GridGenerator<2> for Cellular {
 }
 
 #[inline(always)]
-fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
+fn euclidean_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
     grid_data: &CellularGridData<2>,
     jit: &CellJitters,
     x_idx: usize,
@@ -366,7 +370,7 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
 
         let mut index = x_idx;
         while index + lanes <= x_next {
-            grid_cellular_fill_block::<A, C, INIT, FINAL, false>(
+            euclidean_fill_block::<A, C, INIT, FINAL, false>(
                 grid_data,
                 jit,
                 &dysq,
@@ -382,7 +386,7 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             index += lanes;
         }
         if index < x_next {
-            grid_cellular_fill_block::<A, C, INIT, FINAL, true>(
+            euclidean_fill_block::<A, C, INIT, FINAL, true>(
                 grid_data,
                 jit,
                 &dysq,
@@ -400,7 +404,7 @@ fn grid_cellular_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
 }
 
 #[inline(always)]
-fn grid_cellular_fill_block<
+fn euclidean_fill_block<
     A: Arch,
     C: Combiner,
     const INIT: bool,
@@ -522,7 +526,7 @@ mod tests {
     fn cellular_grid_2d_sanity() {
         let grid = Grid::<2>::new(32, 32);
         let mut result = [0.0; 1024];
-        grid.builder::<Fbm, Cellular>().fill(result.as_mut_slice());
+        grid.builder::<Fbm, Cellular<Euclidean>>().fill(result.as_mut_slice());
         verify_slice(result.as_slice());
     }
 
@@ -573,7 +577,7 @@ mod tests {
         let octave_seed = gen_octave_seed([freq, freq], base_seed);
 
         let mut result = vec![0.0; w * h];
-        grid.builder::<Fbm, Cellular>()
+        grid.builder::<Fbm, Cellular<Euclidean>>()
             .frequency(freq)
             .fill(result.as_mut_slice());
 
@@ -594,7 +598,7 @@ mod tests {
     }
 
     fn reference(seed: u32, px: f32, py: f32, freq: f32) -> f32 {
-        let gain = Cellular::sample_batch::<StaticArch>(
+        let gain = Cellular::<Euclidean>::sample_batch::<StaticArch>(
             seed,
             [Simd::splat(px), Simd::splat(py)],
             [Simd::splat(freq), Simd::splat(freq)]

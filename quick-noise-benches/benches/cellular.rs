@@ -2,6 +2,7 @@ use std::hint::black_box;
 
 use criterion::{Criterion, Throughput, criterion_group, criterion_main};
 use quick_noise::{Cellular, Fbm, Grid};
+use quick_noise::Euclidean;
 
 const GRID_2D: usize = 1024;
 const GRID_2D_AREA: usize = GRID_2D * GRID_2D;
@@ -23,7 +24,7 @@ fn cellular_2d_octaves_benchmark(c: &mut Criterion) {
         let mut result = vec![0.0; GRID_2D_AREA];
         group.bench_function("quick-noise grid", |b| {
             b.iter(|| {
-                grid.builder::<Fbm, Cellular>()
+                grid.builder::<Fbm, Cellular<Euclidean>>()
                     .octaves(OCTAVES_2D)
                     .frequency(BASE_FREQ_2D as f32)
                     .fill(result.as_mut_slice());
@@ -39,7 +40,7 @@ fn cellular_2d_octaves_benchmark(c: &mut Criterion) {
         let mut result = vec![0.0; GRID_2D_AREA];
         group.bench_function("quick-noise batch", |b| {
             b.iter(|| {
-                BatchNoise::<2, Fbm, Cellular>::builder(grid.x_iter(), grid.y_iter())
+                BatchNoise::<2, Fbm, Cellular<Euclidean>>::builder(grid.x_iter(), grid.y_iter())
                     .octaves(OCTAVES_2D)
                     .frequency(BASE_FREQ_2D as f32)
                     .fill(result.as_mut_slice());
@@ -255,7 +256,7 @@ fn cellular_2d_octaves_benchmark(c: &mut Criterion) {
         let mut result = vec![0.0; GRID_3D_VOLUME];
         group.bench_function("quick-noise batch", |b| {
             b.iter(|| {
-                BatchNoise::<3, Fbm, Cellular>::builder(
+                BatchNoise::<3, Fbm, Cellular<Euclidean>>::builder(
                     grid.x_iter(),
                     grid.y_iter(),
                     grid.z_iter(),

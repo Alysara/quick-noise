@@ -53,19 +53,19 @@ fn create_test_images_grid_2d() {
         .to_grayscale_image(4, 3, "test_images/tiny_grid_2d_3_value.png");
 
     tiny_grid_2d_1
-        .builder::<Fbm, Cellular>()
+        .builder::<Fbm, Cellular<Euclidean>>()
         .octaves(6)
         .into_iter()
         .to_grayscale_image(1, 1, "test_images/tiny_grid_2d_1_cellular.png");
 
     tiny_grid_2d_2
-        .builder::<Fbm, Cellular>()
+        .builder::<Fbm, Cellular<Euclidean>>()
         .octaves(6)
         .into_iter()
         .to_grayscale_image(7, 7, "test_images/tiny_grid_2d_2_cellular.png");
 
     tiny_grid_2d_3
-        .builder::<Fbm, Cellular>()
+        .builder::<Fbm, Cellular<Euclidean>>()
         .octaves(6)
         .into_iter()
         .to_grayscale_image(4, 3, "test_images/tiny_grid_2d_3_cellular.png");
@@ -165,58 +165,58 @@ fn create_test_images_grid_2d() {
         .into_iter()
         .to_grayscale_image(1024, 2048, "test_images/grid_2d_long_perlin.png");
 
-    // Cellular Grid Test
+    // Cellular<Euclidean> Grid Test
     let grid = Grid::<2>::new(256, 256).seed(42).sample_position(-128.0, -128.0);
 
-    grid.builder::<Fbm, Cellular>()
+    grid.builder::<Fbm, Cellular<Euclidean>>()
         .frequency(1.0 / 32.0)
         .into_iter()
         .map(|x| x * Simd::splat(1.4) - Simd::splat(1.0))
         .to_grayscale_image(256, 256, "test_images/grid_2d_cellular_seeded.png");
 
-    grid.builder::<Fbm, Cellular>()
+    grid.builder::<Fbm, Cellular<Euclidean>>()
         .octaves(2)
         .frequency(1.0 / 64.0)
         .into_iter()
         .map(|x| x * Simd::splat(1.4) - Simd::splat(1.0))
         .to_grayscale_image(256, 256, "test_images/grid_2d_fbm_cellular_seeded.png");
 
-    grid.builder::<PingPong, Cellular>()
+    grid.builder::<PingPong, Cellular<Euclidean>>()
         .octaves(2)
         .frequency(1.0 / 64.0)
         .into_iter()
         .map(|x| x * Simd::splat(1.4) - Simd::splat(1.0))
         .to_grayscale_image(256, 256, "test_images/grid_2d_ping_pong_cellular_seeded.png");
 
-    grid.builder::<Ridged, Cellular>()
+    grid.builder::<Ridged, Cellular<Euclidean>>()
         .octaves(2)
         .frequency(1.0 / 64.0)
         .into_iter()
         .map(|x| x * Simd::splat(1.4) - Simd::splat(1.0))
         .to_grayscale_image(256, 256, "test_images/grid_2d_ridged_cellular_seeded.png");
 
-    grid.builder::<Billow, Cellular>()
+    grid.builder::<Billow, Cellular<Euclidean>>()
         .octaves(2)
         .frequency(1.0 / 64.0)
         .into_iter()
         .map(|x| x * Simd::splat(1.4) - Simd::splat(1.0))
         .to_grayscale_image(256, 256, "test_images/grid_2d_billow_cellular_seeded.png");
 
-    grid.builder::<HybridMulti, Cellular>()
+    grid.builder::<HybridMulti, Cellular<Euclidean>>()
         .octaves(1)
         .frequency(1.0 / 64.0)
         .into_iter()
         .map(|x| x * Simd::splat(1.4) - Simd::splat(1.0))
         .to_grayscale_image(256, 256, "test_images/grid_2d_hybrid_multi_cellular_seeded.png");
 
-    grid.builder::<Multi, Cellular>()
+    grid.builder::<Multi, Cellular<Euclidean>>()
         .octaves(1)
         .frequency(1.0 / 64.0)
         .into_iter()
         .map(|x| x * Simd::splat(1.4) - Simd::splat(1.0))
         .to_grayscale_image(256, 256, "test_images/grid_2d_multi_cellular_seeded.png");
 
-    grid.builder::<Terrace, Cellular>()
+    grid.builder::<Terrace, Cellular<Euclidean>>()
         .octaves(1)
         .frequency(1.0 / 64.0)
         .into_iter()
@@ -226,7 +226,7 @@ fn create_test_images_grid_2d() {
     let grid_2d_tiled = Grid::<2>::new(1024, 1024).tiling(Some(128), Some(256));
 
     grid_2d_tiled
-        .builder::<Fbm, Cellular>()
+        .builder::<Fbm, Cellular<Euclidean>>()
         .octaves(4)
         .frequency(1.0 / 64.0)
         .into_iter()
@@ -386,7 +386,7 @@ fn create_test_images_batch_2d() {
         .octaves(6)
         .into_iter()
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_2d_simplex.png");
-    BatchNoise::<2, Fbm, Cellular>::builder(grid_2d.x_iter(), grid_2d.y_iter())
+    BatchNoise::<2, Fbm, Cellular<Euclidean>>::builder(grid_2d.x_iter(), grid_2d.y_iter())
         .octaves(6)
         .into_iter()
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_2d_cellular.png");
@@ -401,7 +401,7 @@ fn create_test_images_batch_2d() {
         .into_iter()
         .map(|x| x * Simd::splat(0.25) - Simd::splat(1.0))
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_2d_ridged_simplex.png");
-    BatchNoise::<2, Ridged, Cellular>::builder(grid_2d.x_iter(), grid_2d.y_iter())
+    BatchNoise::<2, Ridged, Cellular<Euclidean>>::builder(grid_2d.x_iter(), grid_2d.y_iter())
         .octaves(6)
         .into_iter()
         .map(|x| x * Simd::splat(0.25) - Simd::splat(1.0))
@@ -425,7 +425,7 @@ fn create_test_images_batch_2d() {
             1000,
             "test_images/batch_grid_2d_hybrid_multi_simplex.png",
         );
-    BatchNoise::<2, HybridMulti, Cellular>::builder(grid_2d.x_iter(), grid_2d.y_iter())
+    BatchNoise::<2, HybridMulti, Cellular<Euclidean>>::builder(grid_2d.x_iter(), grid_2d.y_iter())
         .octaves(6)
         .into_iter()
         .map(|x| x * Simd::splat(0.25) - Simd::splat(1.0))
@@ -443,7 +443,7 @@ fn create_test_images_batch_2d() {
         .octaves(6)
         .into_iter()
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_2d_billow_simplex.png");
-    BatchNoise::<2, Billow, Cellular>::builder(grid_2d.x_iter(), grid_2d.y_iter())
+    BatchNoise::<2, Billow, Cellular<Euclidean>>::builder(grid_2d.x_iter(), grid_2d.y_iter())
         .octaves(6)
         .into_iter()
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_2d_billow_cellular.png");
@@ -460,7 +460,7 @@ fn create_test_images_batch_2d() {
             1000,
             "test_images/batch_grid_2d_ping_pong_simplex.png",
         );
-    BatchNoise::<2, PingPong, Cellular>::builder(grid_2d.x_iter(), grid_2d.y_iter())
+    BatchNoise::<2, PingPong, Cellular<Euclidean>>::builder(grid_2d.x_iter(), grid_2d.y_iter())
         .octaves(6)
         .into_iter()
         .to_grayscale_image(
@@ -484,7 +484,7 @@ fn create_test_images_batch_2d() {
         .into_iter()
         .map(|x| x * Simd::splat(0.5) - Simd::splat(1.0))
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_2d_multi_simplex.png");
-    BatchNoise::<2, Multi, Cellular>::builder(grid_2d.x_iter(), grid_2d.y_iter())
+    BatchNoise::<2, Multi, Cellular<Euclidean>>::builder(grid_2d.x_iter(), grid_2d.y_iter())
         .octaves(6)
         .into_iter()
         .map(|x| x * Simd::splat(0.5) - Simd::splat(1.0))
@@ -502,22 +502,22 @@ fn create_test_images_batch_2d() {
         .octaves(6)
         .into_iter()
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_2d_terrace_simplex.png");
-    BatchNoise::<2, Terrace, Cellular>::builder(grid_2d.x_iter(), grid_2d.y_iter())
+    BatchNoise::<2, Terrace, Cellular<Euclidean>>::builder(grid_2d.x_iter(), grid_2d.y_iter())
         .octaves(6)
         .into_iter()
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_2d_terrace_cellular.png");
     
-    // Cellular Batch Test
+    // Cellular<Euclidean> Batch Test
     let grid = Grid::<2>::new(256, 256).seed(42).sample_position(-128.0, -128.0);
 
-    BatchNoise::<2, Fbm, Cellular>::builder(grid.x_iter(), grid.y_iter())
+    BatchNoise::<2, Fbm, Cellular<Euclidean>>::builder(grid.x_iter(), grid.y_iter())
         .seed_with_grid(42, 42)
         .frequency(1.0 / 32.0)
         .into_iter()
         .map(|x| x * Simd::splat(1.4) - Simd::splat(1.0))
         .to_grayscale_image(256, 256, "test_images/batch_2d_cellular_seeded.png");
 
-    BatchNoise::<2, Fbm, Cellular>::builder(grid.x_iter(), grid.y_iter())
+    BatchNoise::<2, Fbm, Cellular<Euclidean>>::builder(grid.x_iter(), grid.y_iter())
         .seed_with_grid(42, 42)
         .octaves(2)
         .frequency(1.0 / 64.0)
@@ -558,7 +558,7 @@ fn create_test_images_batch_3d() {
         .octaves(1)
         .into_iter()
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_3d_simplex.png");
-    BatchNoise::<3, Fbm, Cellular>::builder(grid_3d.x_iter(), grid_3d.y_iter(), grid_3d.z_iter())
+    BatchNoise::<3, Fbm, Cellular<Euclidean>>::builder(grid_3d.x_iter(), grid_3d.y_iter(), grid_3d.z_iter())
         .octaves(6)
         .into_iter()
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_3d_cellular.png");
@@ -573,7 +573,7 @@ fn create_test_images_batch_3d() {
         .into_iter()
         .map(|x| x * Simd::splat(0.25) - Simd::splat(1.0))
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_3d_ridged_simplex.png");
-    BatchNoise::<3, Ridged, Cellular>::builder(
+    BatchNoise::<3, Ridged, Cellular<Euclidean>>::builder(
         grid_3d.x_iter(),
         grid_3d.y_iter(),
         grid_3d.z_iter(),
@@ -609,7 +609,7 @@ fn create_test_images_batch_3d() {
         1000,
         "test_images/batch_grid_3d_hybrid_multi_simplex.png",
     );
-    BatchNoise::<3, HybridMulti, Cellular>::builder(
+    BatchNoise::<3, HybridMulti, Cellular<Euclidean>>::builder(
         grid_3d.x_iter(),
         grid_3d.y_iter(),
         grid_3d.z_iter(),
@@ -631,7 +631,7 @@ fn create_test_images_batch_3d() {
         .octaves(6)
         .into_iter()
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_3d_billow_simplex.png");
-    BatchNoise::<3, Billow, Cellular>::builder(
+    BatchNoise::<3, Billow, Cellular<Euclidean>>::builder(
         grid_3d.x_iter(),
         grid_3d.y_iter(),
         grid_3d.z_iter(),
@@ -660,7 +660,7 @@ fn create_test_images_batch_3d() {
         1000,
         "test_images/batch_grid_3d_ping_pong_simplex.png",
     );
-    BatchNoise::<3, PingPong, Cellular>::builder(
+    BatchNoise::<3, PingPong, Cellular<Euclidean>>::builder(
         grid_3d.x_iter(),
         grid_3d.y_iter(),
         grid_3d.z_iter(),
@@ -688,7 +688,7 @@ fn create_test_images_batch_3d() {
         .into_iter()
         .map(|x| x * Simd::splat(0.5) - Simd::splat(1.0))
         .to_grayscale_image(1000, 1000, "test_images/batch_grid_3d_multi_simplex.png");
-    BatchNoise::<3, Multi, Cellular>::builder(grid_3d.x_iter(), grid_3d.y_iter(), grid_3d.z_iter())
+    BatchNoise::<3, Multi, Cellular<Euclidean>>::builder(grid_3d.x_iter(), grid_3d.y_iter(), grid_3d.z_iter())
         .octaves(6)
         .into_iter()
         .map(|x| x * Simd::splat(0.5) - Simd::splat(1.0))
@@ -710,7 +710,7 @@ fn create_test_images_batch_3d() {
     .octaves(6)
     .into_iter()
     .to_grayscale_image(1000, 1000, "test_images/batch_grid_3d_terrace_simplex.png");
-    BatchNoise::<3, Terrace, Cellular>::builder(
+    BatchNoise::<3, Terrace, Cellular<Euclidean>>::builder(
         grid_3d.x_iter(),
         grid_3d.y_iter(),
         grid_3d.z_iter(),

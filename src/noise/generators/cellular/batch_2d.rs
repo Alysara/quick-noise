@@ -1,10 +1,10 @@
-use simply_simd::{Arch, Simd, enable_targets};
+use simply_simd::{Arch, Simd};
 
 use crate::api::batch::interface::BatchGenerator;
-use crate::noise::generators::Cellular;
+use crate::noise::generators::{Cellular, Euclidean};
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 
-impl BatchGenerator<2> for Cellular {
+impl BatchGenerator<2> for Cellular<Euclidean> {
     #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
