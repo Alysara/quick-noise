@@ -2,7 +2,7 @@ use simply_simd::{Arch, Simd};
 
 use crate::{Combiner, CombinerArray};
 
-/// Config struct for the PingPong combiner.
+/// Config struct for PingPong combiner.
 #[derive(Copy, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct PingPongConfig {
