@@ -2,14 +2,15 @@ All changes in `quick-noise` are documented here.
 
 ## Unreleased
 
-## 0.3.0 - In development
+## 0.3.0 - 2026-10-06
 
 ### Added
 - Generator for 2D Cellular grid noise. ([#12](https://github.com/Alysara/quick-noise/pull/12) by [@Qubittly](https://github.com/Qubittly))
+- `exp`, `exp2`, `log2`, and `pow`, along with unchecked variants to the simd module (simply-simd). ([#11](https://github.com/Alysara/quick-noise/issues/11) by [@Inspirateur](https://github.com/Inspirateur))
 
 ### Changed
 - **Breaking change**: Converted to fractional (float) input positions for the Grid API. ([#13](https://github.com/Alysara/quick-noise/pull/13) by [@PPakalns](https://github.com/PPakalns))
-- **Breaking change**: Renamed
+- **Breaking change**: Renamed `simd_neq` renamed to `simd_ne` in the simd module (simply-simd).
 - Performance improvements to Value and Perlin grid noise.
 - Significant performance improvements to batch noise iterator inlining.
 
