@@ -22,6 +22,7 @@ pub struct OctaveGridNoiseBuilder<
     grid_config: GridConfig<D>,
     noise_config: NoiseConfig<D>,
     combiner_config: C::Config,
+    generator_config: G::GenConfig,
     octave_list: &'a [Octave<D>],
     _noise_type: PhantomData<G>,
     _arch: PhantomData<A>,
@@ -54,6 +55,7 @@ impl<'a, const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch>
             &self.grid_config,
             &self.noise_config,
             &self.combiner_config,
+            &self.generator_config,
             self.octave_list,
             result.as_mut_slice(),
         );
@@ -65,6 +67,7 @@ impl<'a, const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch>
             &self.grid_config,
             &self.noise_config,
             &self.combiner_config,
+            &self.generator_config,
             self.octave_list,
             result,
         );

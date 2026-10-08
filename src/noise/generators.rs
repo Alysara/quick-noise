@@ -31,7 +31,7 @@ pub mod simplex {
 
 // Cellular noise distance function trait for function structs
 pub trait DistanceFn: Default + Copy + Clone + PartialEq {
-    type Config: Copy + Default;
+    type DistanceConfig: Copy + Default;
 }
 /// Standard straight-line distance: sqrt(x^2 + y^2 + ...).
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
@@ -65,22 +65,22 @@ impl Default for MinkowskiConfig {
 }
 
 impl DistanceFn for Euclidean {
-    type Config = ();
+    type DistanceConfig = ();
 }
 impl DistanceFn for EuclideanSquared {
-    type Config = ();
+    type DistanceConfig = ();
 }
 impl DistanceFn for Hybrid {
-    type Config = ();
+    type DistanceConfig = ();
 }
 impl DistanceFn for Manhattan {
-    type Config = ();
+    type DistanceConfig = ();
 }
 impl DistanceFn for MaxAxis {
-    type Config = ();
+    type DistanceConfig = ();
 }
 impl DistanceFn for Minwoski {
-    type Config = MinkowskiConfig;
+    type DistanceConfig = MinkowskiConfig;
 }
 
 /// Cell-like noise created by the distance between each sample and its nearest node.
@@ -90,7 +90,9 @@ pub struct Cellular<D: DistanceFn> {
 }
 
 pub mod cellular {
-    pub mod batch_2d;
+    pub mod batch_2d_euclidean;
+    pub mod batch_2d_euclidean_sq;
     pub mod batch_3d;
-    pub mod grid_2d;
+    pub mod grid_2d_euclidean;
+    pub mod grid_2d_euclidean_sq;
 }

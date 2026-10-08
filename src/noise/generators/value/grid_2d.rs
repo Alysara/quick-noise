@@ -43,9 +43,11 @@ impl<'a> ValueGradients2D<'a> {
 const LERP: u8 = Lerp::Cubic as u8;
 #[enable_targets(A)]
 impl GridGenerator<2> for Value {
+    type GenConfig = ();
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         fractal_config: C::Config,
+        _generator_config: <Self as GridGenerator<2>>::GenConfig,
         state: &mut [f32],
         dst: &mut [f32],
     ) {

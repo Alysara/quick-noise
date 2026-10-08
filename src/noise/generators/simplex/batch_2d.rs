@@ -1,23 +1,16 @@
-use std::f32::consts::SQRT_2;
-
-use simply_simd::{Arch, Simd};
+use simply_simd::{ Arch, Simd };
 
 use crate::api::batch::interface::BatchGenerator;
 use crate::noise::generators::Simplex;
-use crate::noise::util::constants::{BYTE_SHUFFLE, HASH_PRIME};
-
-const SQRT_3: f32 = 1.732_050_8;
-const SKEW_2D: f32 = (SQRT_3 - 1.0) / 2.0;
-const UNSKEW_2D: f32 = (3.0 - SQRT_3) / 6.0;
-
-const SCALE: f32 = 80.0;
-const SCALED_SQRT: f32 = (SQRT_2 / 2.0) * SCALE;
-
-const A: f32 = SCALE;
-const B: f32 = SCALED_SQRT;
-const C: f32 = 0.0;
-pub const X_GRADIENTS_2D: [f32; 8] = [A, B, C, -B, -A, -B, C, B];
-pub const Y_GRADIENTS_2D: [f32; 8] = [C, B, A, B, C, -B, -A, -B];
+use crate::noise::util::constants::{
+    BYTE_SHUFFLE,
+    HASH_PRIME,
+    X_GRADIENTS_2D,
+    Y_GRADIENTS_2D,
+    SKEW_2D,
+    UNSKEW_2D,
+    SQRT_3,
+};
 
 impl BatchGenerator<2> for Simplex {
     #[inline(always)]
