@@ -4,7 +4,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{ Combiner, CombinerState };
-use crate::noise::generators::{self, EuclideanSquared};
+use crate::noise::generators::EuclideanSquared;
 use crate::noise::util::grid_data::CellularGridData;
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 use crate::noise::util::grid_helpers::{
@@ -569,7 +569,7 @@ mod tests {
         check_reference(32, 96, seed, -5.0, 3.0, 1.0 / 6.0);
     }
 
-    fn check_reference(w: usize, h: usize, seed: i64, offset_x: f32, offset_y: f32, freq: f32) {
+    fn check_reference(w: usize, h: usize, seed: i64, offset_x: f64, offset_y: f64, freq: f32) {
         let grid = Grid::<2>::new(w, h)
             .seed(seed)
             .sample_position(offset_x, offset_y);
