@@ -9,7 +9,9 @@ All changes in `quick-noise` are documented here.
 
 ### Changed
 - **Breaking change**: Converted to fractional (float) input positions for the Grid API. ([#13](https://github.com/Alysara/quick-noise/pull/13) by [@PPakalns](https://github.com/PPakalns))
+- **Breaking change**: Renamed
 - Performance improvements to Value and Perlin grid noise.
+- Significant performance improvements to batch noise iterator inlining.
 
 ### Fixed
 - Incorrect cellular noise result for scalar fallback.

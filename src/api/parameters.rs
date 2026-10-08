@@ -113,7 +113,7 @@ macro_rules! params_noise_builder {
             }
 
             /// Determines whether or not to finalize the values after the final octave.
-            /// This finalization uses what is defined by the [Fractal] type.
+            /// This finalization uses what is defined by the [Combiner] type.
             pub fn finalize(mut self, finalize: bool) -> Self {
                 self.noise_config.finalize = finalize;
                 self

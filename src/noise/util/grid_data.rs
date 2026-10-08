@@ -125,11 +125,20 @@ impl<'a, const D: usize> PVGridData<'a, D> {
         let increment = from_fn(|i| params.frequency[i] * params.magnification);
 
         // Get the starting gradient coordinates and how far the first sample is to the next one.
-        let grid_start: [i32; D] =
-            from_fn(|i| (params.position[i] * increment[i]).floor() as i32);
+        let mut grid_start: [i32; D] =
+            from_fn(|i| (params.position[i] * increment[i] as f64).floor() as i32);
 
-        let frac_start: [f32; D] =
-            from_fn(|i| (params.position[i] * increment[i] - grid_start[i] as f32).max(0.0));
+        let mut frac_start: [f32; D] = from_fn(|i| {
+            (params.position[i] * increment[i] as f64 - grid_start[i] as f64).max(0.0) as f32
+        });
+
+        // Renormalize due to f64 precision.
+        for (grid, frac) in grid_start.iter_mut().zip(frac_start.iter_mut()) {
+            if *frac >= 1.0 {
+                *frac = 0.0;
+                *grid += 1;
+            }
+        }
 
         // Quintic lerp the distances to get the fade factor.
         let distances = from_fn(|i| arena.allocate(padded_size[i]));

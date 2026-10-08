@@ -1,6 +1,8 @@
 use std::marker::PhantomData;
 
-use itertools::{Zip, multizip};
+use simply_simd::SimdToArray;
+
+use crate::api::batch::{Zip, multizip};
 
 use crate::api::batch::interface::{BatchNoise, DimIter};
 use crate::api::configs::*;
@@ -179,17 +181,48 @@ impl<'a, const D: usize, C: Combiner, G: BatchGenerator<D>, A: Arch, I: DimIter<
     OctaveBatchNoiseBuilder<'a, D, C, G, A, I>
 {
     declare_fill!(self, output, {
-        if self.noise_config.initialize {
-            for (i, x) in self.into_iter().enumerate() {
-                x.copy_to_slice(&mut output[i * Simd::<f32, A>::LANES..]);
+        let initialize = self.noise_config.initialize;
+        let mut iter = self.into_iter();
+        let mut chunks = output.chunks_exact_mut(Simd::<f32, A>::LANES);
+
+        if initialize {
+            // Fast past for full chunks.
+            for chunk in &mut chunks {
+                match iter.next() {
+                    Some(x) => x.copy_to_slice(chunk),
+                    None => break,
+                }
+            }
+
+            // Tail for the last elements
+            let rem = chunks.into_remainder();
+            if !rem.is_empty()
+                && let Some(x) = iter.next()
+            {
+                let arr = x.to_array();
+                rem.copy_from_slice(&arr.as_slice()[..rem.len()]);
             }
         } else {
-            let mut i = 0;
-            for x in self.into_iter() {
-                let cur = Simd::from_slice(&output[i..]);
-                let x = cur + x;
-                x.copy_to_slice(&mut output[i..]);
-                i += Simd::<f32, A>::LANES;
+            // Fast past for full chunks.
+            for chunk in &mut chunks {
+                match iter.next() {
+                    Some(x) => {
+                        let cur = Simd::from_slice(chunk);
+                        (cur + x).copy_to_slice(chunk);
+                    }
+                    None => break,
+                }
+            }
+
+            // Tail for the last elements
+            let rem = chunks.into_remainder();
+            if !rem.is_empty()
+                && let Some(x) = iter.next()
+            {
+                let arr = x.to_array();
+                for (o, v) in rem.iter_mut().zip(arr.as_slice()) {
+                    *o += *v;
+                }
             }
         }
     });
