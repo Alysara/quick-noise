@@ -2,11 +2,11 @@ use std::array::from_fn;
 use std::mem::MaybeUninit;
 
 use crate::api::grid::interface::GridNoiseParams;
-use crate::noise::util::grid_helpers::{Arena, configure_tiling, fill_grid_indices};
+use crate::noise::util::grid_helpers::{
+    Arena, MaybeUninitSliceSimdExt, configure_tiling, fill_grid_indices,
+};
 use crate::simd::Arch;
 use crate::simd::register::Simd;
-
-
 
 pub(crate) struct CellularGridData<'a, const D: usize> {
     pub total_size: usize,
@@ -51,11 +51,7 @@ impl<'a, const D: usize> CellularGridData<'a, D> {
         for axis in 0..D {
             for i in (0..params.grid_size[axis]).step_by(lanes) {
                 let fract_dist = cur_dist[axis].fract();
-                unsafe {
-                    fract_dist.copy_to_aligned_slice_unchecked(
-                        distances[axis].get_unchecked_mut(i..).assume_init_mut(),
-                    );
-                }
+                unsafe { distances[axis].write_simd_aligned(i, fract_dist) };
                 cur_dist[axis] += chunk_increment[axis];
             }
         }
@@ -79,7 +75,6 @@ impl<'a, const D: usize> CellularGridData<'a, D> {
         }
     }
 }
-
 
 pub(crate) struct PVGridData<'a, const D: usize> {
     pub total_size: usize,
@@ -123,10 +118,12 @@ impl<'a, const D: usize> PVGridData<'a, D> {
 
         let total_size = params.grid_size.iter().product();
         let increment = from_fn(|i| params.frequency[i] * params.magnification);
+        let scale: [f32; D] = from_fn(|i| 1.0 / increment[i]);
 
         // Get the starting gradient coordinates and how far the first sample is to the next one.
-        let mut grid_start: [i32; D] =
-            from_fn(|i| (params.position[i] * increment[i] as f64).floor() as i32);
+        let scaled_pos: [f64; D] = from_fn(|i| params.position[i] * increment[i] as f64);
+        let floored: [f64; D] = from_fn(|i| scaled_pos[i].floor());
+        let mut grid_start: [i32; D] = from_fn(|i| unsafe { floored[i].to_int_unchecked::<i32>() });
 
         let mut frac_start: [f32; D] = from_fn(|i| {
             (params.position[i] * increment[i] as f64 - grid_start[i] as f64).max(0.0) as f32
@@ -140,41 +137,106 @@ impl<'a, const D: usize> PVGridData<'a, D> {
             }
         }
 
-        // Quintic lerp the distances to get the fade factor.
-        let distances = from_fn(|i| arena.allocate(padded_size[i]));
-        let fade_factors = from_fn(|i| arena.allocate(padded_size[i]));
-
-        // Get the distances from the gradient gridpoints.
-        let mut cur_dist: [_; D] = from_fn(|i| {
-            Simd::<f32, A>::iota(0.0) * Simd::<f32, A>::splat(increment[i])
-                + Simd::<f32, A>::splat(frac_start[i])
-        });
-        let chunk_increment: [_; D] =
-            from_fn(|i| Simd::<f32, A>::splat(increment[i] * lanes as f32));
+        let grid_indices = from_fn(|i| arena.allocate(padded_size[i]));
+        let mut num_loops = [0; D];
 
         for axis in 0..D {
-            for i in (0..params.grid_size[axis]).step_by(lanes) {
-                let fract_dist = cur_dist[axis].fract();
-                let cur_lerp = match lerp_type {
-                    Lerp::Cubic => fract_dist.cubic_lerp(),
-                    Lerp::Quintic => fract_dist.quintic_lerp(),
-                };
+            let length = params.grid_size[axis] as i32 as f32;
+            let full_stride = length.mul_add(increment[axis], frac_start[axis]);
+            let last_boundary =
+                unsafe { full_stride.ceil().to_int_unchecked::<u32>() } as usize - 1;
 
-                unsafe {
-                    fract_dist.copy_to_aligned_slice_unchecked(
-                        distances[axis].get_unchecked_mut(i..).assume_init_mut(),
-                    );
-                    cur_lerp.copy_to_aligned_slice_unchecked(
-                        fade_factors[axis].get_unchecked_mut(i..).assume_init_mut(),
-                    );
+            unsafe {
+                std::hint::assert_unchecked(last_boundary < padded_size[axis]);
+            }
+
+            let iota = Simd::<f32, A>::iota(0.0);
+            let scale_simd = Simd::splat(scale[axis]);
+            let first_boundary = Simd::splat(scale[axis] * (1.0 - frac_start[axis]));
+            let mut boundary_counter = iota.mul_add(scale_simd, first_boundary);
+
+            let lanes = Simd::splat(Simd::<f32, A>::LANES as f32);
+            let stride = scale_simd * lanes;
+
+            for i in (0..last_boundary).step_by(Simd::<f32, A>::LANES) {
+                let boundaries = boundary_counter.ceil().cast_uint_round();
+                unsafe { grid_indices[axis].write_simd_aligned(i, boundaries) };
+                boundary_counter += stride;
+            }
+
+            unsafe {
+                let last_index = grid_indices[axis]
+                    .assume_init_mut()
+                    .get_unchecked_mut(last_boundary);
+
+                *last_index = params.grid_size[axis] as u32;
+            }
+
+            num_loops[axis] = last_boundary + 1;
+        }
+        unsafe { println!("Grid indices: {:?}", grid_indices[0].assume_init_ref()) };
+
+        let distances = from_fn(|i| arena.allocate(padded_size[i]));
+
+        // Quintic lerp the distances to get the fade factor.
+        let fade_factors = from_fn(|i| arena.allocate(padded_size[i]));
+
+        for axis in 0..D {
+            let mut prev_boundary = 0;
+            let single_stride = Simd::<f32, A>::splat(increment[axis] * lanes as f32);
+            let stride = Simd::<f32, A>::splat(increment[axis] * (lanes * 2) as f32);
+            let iota_start = Simd::iota(0.0) * Simd::splat(increment[axis]);
+            let offset_start = iota_start + single_stride;
+            let mut cell = 0.0;
+
+            for boundary in 0..num_loops[axis] {
+                let next_boundary =
+                    unsafe { *grid_indices[axis].assume_init_ref().get_unchecked(boundary) };
+
+                let start = (prev_boundary as f32).mul_add(increment[axis], frac_start[axis]);
+
+                let start_fract = start - cell;
+
+                let mut cur_dist1 = Simd::<f32, A>::splat(start_fract) + iota_start;
+                let mut cur_dist2 = Simd::<f32, A>::splat(start_fract) + offset_start;
+
+                // Fast path double iteration loop.
+                let mut i = prev_boundary;
+                while i < next_boundary.saturating_sub(lanes as u32) {
+                    let (cur_lerp1, cur_lerp2) = match lerp_type {
+                        Lerp::Cubic => (cur_dist1.cubic_lerp(), cur_dist2.cubic_lerp()),
+                        Lerp::Quintic => (cur_dist1.quintic_lerp(), cur_dist2.quintic_lerp()),
+                    };
+
+                    unsafe {
+                        distances[axis].write_simd(i as usize, cur_dist1);
+                        distances[axis].write_simd(i as usize + lanes, cur_dist2);
+                        fade_factors[axis].write_simd(i as usize, cur_lerp1);
+                        fade_factors[axis].write_simd(i as usize + lanes, cur_lerp2);
+                    }
+
+                    cur_dist1 += stride;
+                    cur_dist2 += stride;
+
+                    i += lanes as u32 * 2;
                 }
-                cur_dist[axis] += chunk_increment[axis];
+
+                // Tail.
+                if i < next_boundary {
+                    let cur_lerp = match lerp_type {
+                        Lerp::Cubic => cur_dist1.cubic_lerp(),
+                        Lerp::Quintic => cur_dist1.quintic_lerp(),
+                    };
+                    unsafe {
+                        distances[axis].write_simd(i as usize, cur_dist1);
+                        fade_factors[axis].write_simd(i as usize, cur_lerp);
+                    }
+                }
+
+                prev_boundary = next_boundary;
+                cell += 1.0;
             }
         }
-
-        // Identify the cutoff points between frequency-based grid boundaries .
-        let mut grid_indices = from_fn(|i| arena.allocate(padded_size[i]));
-        let num_loops = fill_grid_indices::<A, D>(&mut grid_indices, &distances, params.grid_size);
 
         // Adjust the tiling.
         let octave_tiling = configure_tiling(params);

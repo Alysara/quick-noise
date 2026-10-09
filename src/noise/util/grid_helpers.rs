@@ -316,6 +316,7 @@ fn fill_grid_indices_single<A: Arch>(
     write_idx + 1
 }
 
+#[inline(never)]
 pub fn fill_grid_indices<A: Arch, const D: usize>(
     grid_indices: &mut [&mut [MaybeUninit<u32>]; D],
     distances: &[&mut [MaybeUninit<f32>]; D],

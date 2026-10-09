@@ -73,6 +73,7 @@ pub trait NoiseImageExt<A: Arch>: Iterator<Item = Simd<f32, A>> + Sized {
                 (min.min(x), max.max(x))
             });
 
+
         let dif = max - min;
         let coef = 255.0 / dif;
 
