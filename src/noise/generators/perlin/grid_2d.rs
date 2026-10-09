@@ -51,9 +51,8 @@ impl GridGenerator<2> for Perlin {
         let padded_size = pad_grid_size::<A, _>(params.grid_size);
 
         // 3 * padded_size[1] + 3 * padded_size[0] for grid data,
-        // 2 * padded_size[0] for the per-pixel left/right cell hashes,
         // 4 * padded_size[0] for the two x-lerped gradient rows (x and y each).
-        let required_cache = padded_size[1] * 3 + padded_size[0] * 9;
+        let required_cache = padded_size[1] * 3 + padded_size[0] * 7;
         let mut cache = ArenaBuffer::<A>::with_capacity(required_cache);
         let mut arena = Arena::with_cache(&mut cache);
 

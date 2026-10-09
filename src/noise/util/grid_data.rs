@@ -138,6 +138,9 @@ impl<'a, const D: usize> PVGridData<'a, D> {
         }
 
         let grid_indices = from_fn(|i| arena.allocate(padded_size[i]));
+        let distances = from_fn(|i| arena.allocate(padded_size[i]));
+        let fade_factors = from_fn(|i| arena.allocate(padded_size[i]));
+
         let mut num_loops = [0; D];
 
         for axis in 0..D {
@@ -145,10 +148,6 @@ impl<'a, const D: usize> PVGridData<'a, D> {
             let full_stride = length.mul_add(increment[axis], frac_start[axis]);
             let last_boundary =
                 unsafe { full_stride.ceil().to_int_unchecked::<u32>() } as usize - 1;
-
-            unsafe {
-                std::hint::assert_unchecked(last_boundary < padded_size[axis]);
-            }
 
             let iota = Simd::<f32, A>::iota(0.0);
             let scale_simd = Simd::splat(scale[axis]);
@@ -174,19 +173,11 @@ impl<'a, const D: usize> PVGridData<'a, D> {
 
             num_loops[axis] = last_boundary + 1;
         }
-        unsafe { println!("Grid indices: {:?}", grid_indices[0].assume_init_ref()) };
-
-        let distances = from_fn(|i| arena.allocate(padded_size[i]));
-
-        // Quintic lerp the distances to get the fade factor.
-        let fade_factors = from_fn(|i| arena.allocate(padded_size[i]));
 
         for axis in 0..D {
             let mut prev_boundary = 0;
-            let single_stride = Simd::<f32, A>::splat(increment[axis] * lanes as f32);
-            let stride = Simd::<f32, A>::splat(increment[axis] * (lanes * 2) as f32);
+            let stride = Simd::<f32, A>::splat(increment[axis] * lanes as f32);
             let iota_start = Simd::iota(0.0) * Simd::splat(increment[axis]);
-            let offset_start = iota_start + single_stride;
             let mut cell = 0.0;
 
             for boundary in 0..num_loops[axis] {
@@ -194,43 +185,23 @@ impl<'a, const D: usize> PVGridData<'a, D> {
                     unsafe { *grid_indices[axis].assume_init_ref().get_unchecked(boundary) };
 
                 let start = (prev_boundary as f32).mul_add(increment[axis], frac_start[axis]);
-
                 let start_fract = start - cell;
+                let mut cur_dist = Simd::<f32, A>::splat(start_fract) + iota_start;
 
-                let mut cur_dist1 = Simd::<f32, A>::splat(start_fract) + iota_start;
-                let mut cur_dist2 = Simd::<f32, A>::splat(start_fract) + offset_start;
-
-                // Fast path double iteration loop.
                 let mut i = prev_boundary;
-                while i < next_boundary.saturating_sub(lanes as u32) {
-                    let (cur_lerp1, cur_lerp2) = match lerp_type {
-                        Lerp::Cubic => (cur_dist1.cubic_lerp(), cur_dist2.cubic_lerp()),
-                        Lerp::Quintic => (cur_dist1.quintic_lerp(), cur_dist2.quintic_lerp()),
-                    };
-
-                    unsafe {
-                        distances[axis].write_simd(i as usize, cur_dist1);
-                        distances[axis].write_simd(i as usize + lanes, cur_dist2);
-                        fade_factors[axis].write_simd(i as usize, cur_lerp1);
-                        fade_factors[axis].write_simd(i as usize + lanes, cur_lerp2);
-                    }
-
-                    cur_dist1 += stride;
-                    cur_dist2 += stride;
-
-                    i += lanes as u32 * 2;
-                }
-
-                // Tail.
-                if i < next_boundary {
+                while i < next_boundary {
                     let cur_lerp = match lerp_type {
-                        Lerp::Cubic => cur_dist1.cubic_lerp(),
-                        Lerp::Quintic => cur_dist1.quintic_lerp(),
+                        Lerp::Cubic => cur_dist.cubic_lerp(),
+                        Lerp::Quintic => cur_dist.quintic_lerp(),
                     };
+
                     unsafe {
-                        distances[axis].write_simd(i as usize, cur_dist1);
+                        distances[axis].write_simd(i as usize, cur_dist);
                         fade_factors[axis].write_simd(i as usize, cur_lerp);
                     }
+
+                    cur_dist += stride;
+                    i += lanes as u32;
                 }
 
                 prev_boundary = next_boundary;
