@@ -35,6 +35,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
     pub fn sample_with_octaves<A: Arch, I: DimIter<A, D>>(
         noise_config: OctaveNoiseConfig<D>,
         combiner_config: C::Config,
+        gen_cfg: G::GenConfig,
         octave_list: &[Octave<D>],
         iters: I,
     ) -> impl Iterator<Item = Simd<f32, A>> {
@@ -62,6 +63,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
             weight_coef: f32,
             combiner_config: &C::Config,
             noise_config: &OctaveNoiseConfig<D>,
+            gen_cfg: &G::GenConfig,
         ) -> Simd<f32, A> {
             if octave_list.is_empty() {
                 return Simd::zero();
@@ -72,7 +74,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
             let freq = from_fn(|i| Simd::splat(octave_list[0].frequency[i]));
             let seed = seeds[0];
             let weight = Simd::splat(octave_list[0].weight * weight_coef);
-            let new_sample = G::sample_batch(seed, inputs, freq) * weight;
+            let new_sample = G::sample_batch(seed, inputs, freq, *gen_cfg) * weight;
             if noise_config.initialize {
                 (state, sample) = C::initialize_sample(combiner_config, new_sample);
             } else {
@@ -88,7 +90,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
                 let freq = from_fn(|i| Simd::splat(octave.frequency[i]));
                 let seed = seeds[i];
                 let weight = Simd::splat(octave_list[0].weight * weight_coef);
-                let new_sample = G::sample_batch(seed, inputs, freq) * weight;
+                let new_sample = G::sample_batch(seed, inputs, freq, *gen_cfg) * weight;
                 (state, sample) = C::apply_sample(combiner_config, state, sample, new_sample);
             }
 
@@ -108,6 +110,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
                 weight_coef,
                 &combiner_config,
                 &noise_config,
+                &gen_cfg
             )
         })
     }

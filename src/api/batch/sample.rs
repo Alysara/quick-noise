@@ -25,6 +25,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
     pub fn sample<A: Arch, I: DimIter<A, D>>(
         noise_config: NoiseConfig<D>,
         combiner_config: C::Config,
+        gen_config: G::GenConfig,
         iters: I,
     ) -> impl Iterator<Item = Simd<f32, A>> {
         let octaves = noise_config.octaves;
@@ -59,6 +60,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
             frequency: [f32; D],
             combiner_config: &C::Config,
             noise_config: &NoiseConfig<D>,
+            gen_config: &G::GenConfig,
             persistence: Simd<f32, A>,
             lacunarity: Simd<f32, A>,
         ) -> Simd<f32, A> {
@@ -70,7 +72,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
             let seed = seeds[0];
             let mut weight = Simd::splat(weight);
             let mut freq = from_fn(|i| Simd::splat(frequency[i]));
-            let new_sample = G::sample_batch(seed, inputs, freq) * weight;
+            let new_sample = G::sample_batch(seed, inputs, freq, *gen_config) * weight;
 
             if noise_config.initialize {
                 (state, sample) = C::initialize_sample(combiner_config, new_sample);
@@ -84,7 +86,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
                     weight *= persistence;
                 }
 
-                let new_sample = G::sample_batch(*seed, inputs, freq) * weight;
+                let new_sample = G::sample_batch(*seed, inputs, freq, *gen_config) * weight;
                 (state, sample) = C::apply_sample(combiner_config, state, sample, new_sample);
             }
 
@@ -104,6 +106,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
                 frequency,
                 &combiner_config,
                 &noise_config,
+                &gen_config,
                 persistence,
                 lacunarity,
             )

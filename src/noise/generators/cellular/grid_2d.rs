@@ -378,7 +378,7 @@ fn fill_cell<A: Arch, C: Combiner, F: DistanceFn, const INIT: bool, const FINAL:
         let dy_mod: [MaybeUninit<Simd<f32, A>>; 12] = std::array::from_fn(|c| {
             let jy = unsafe { (*jit.parts.add(c * 2 + 1)).assume_init() };
             let dy = Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy);
-            MaybeUninit::new(F::per_row_y::<A>(dy, &dst_cfg))
+            MaybeUninit::new(F::modify_y::<A>(dy, &dst_cfg))
         });
 
         let mut index = x_idx;
@@ -606,7 +606,8 @@ mod tests {
         let gain = Cellular::<EuclideanSquared>::sample_batch::<StaticArch>(
             seed,
             [Simd::splat(px), Simd::splat(py)],
-            [Simd::splat(freq), Simd::splat(freq)]
+            [Simd::splat(freq), Simd::splat(freq)],
+            ()
         );
         gain.to_array()[0]
     }

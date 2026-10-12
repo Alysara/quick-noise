@@ -31,6 +31,7 @@ impl<A: Arch> Grid<2, A> {
             iters: multizip((x_iter, y_iter)),
             noise_config: Default::default(),
             combiner_config: Default::default(),
+            gen_config: Default::default(),
             _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
         }
@@ -65,6 +66,7 @@ impl<A: Arch> Grid<3, A> {
             iters: multizip((x_iter, y_iter, z_iter)),
             noise_config: Default::default(),
             combiner_config: Default::default(),
+            gen_config: Default::default(),
             _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
         }

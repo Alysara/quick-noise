@@ -1,15 +1,18 @@
 use simply_simd::{Arch, Simd};
 
 use crate::api::batch::interface::BatchGenerator;
-use crate::noise::generators::{Cellular, Euclidean};
+use crate::noise::generators::{Cellular, DistanceFn};
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 
-impl BatchGenerator<3> for Cellular<Euclidean> {
+impl<F: DistanceFn> BatchGenerator<3> for Cellular<F> {
+    type GenConfig = F::DistanceConfig;
+
     #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 3],
         freq: [Simd<f32, A>; 3],
+        gen_cfg: <Self as BatchGenerator<2>>::GenConfig
     ) -> Simd<f32, A> {
         // Constants.
         let three_halves: Simd<f32, A> = Simd::splat(1.5);

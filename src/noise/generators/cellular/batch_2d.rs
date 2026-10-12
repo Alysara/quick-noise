@@ -5,11 +5,14 @@ use crate::noise::generators::{Cellular, DistanceFn};
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 
 impl<F: DistanceFn> BatchGenerator<2> for Cellular<F> {
+    type GenConfig = F::DistanceConfig;
+
     #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 2],
         freq: [Simd<f32, A>; 2],
+        gen_cfg: <Self as BatchGenerator<2>>::GenConfig
     ) -> Simd<f32, A> {
         // Constants.
         let three_halves: Simd<f32, A> = Simd::splat(1.5);
@@ -40,7 +43,7 @@ impl<F: DistanceFn> BatchGenerator<2> for Cellular<F> {
         let close_edge_lo = x_dist_lo.min(y_dist_lo) + Simd::splat(2.0);
         let close_edge_hi = x_dist_hi.min(y_dist_hi) - one;
         let closest_edge_dist = close_edge_lo.min(close_edge_hi);
-        let threshold = closest_edge_dist * closest_edge_dist;
+        let threshold = F::gate_val(closest_edge_dist, &gen_cfg);
 
         // Hash: 22
         let x1: Simd<u32, A> = x_grid_lo.cast_int_trunc().raw_cast() * channel_seed;
@@ -69,10 +72,10 @@ impl<F: DistanceFn> BatchGenerator<2> for Cellular<F> {
         let y_dist_bl = ((hash_bl >> 9) | exp_bits).raw_cast::<f32>() + y_dist_lo;
         let y_dist_br = ((hash_br >> 9) | exp_bits).raw_cast::<f32>() - y_dist_hi;
 
-        let dist_tl = x_dist_tl.mul_add(x_dist_tl, y_dist_tl * y_dist_tl);
-        let dist_tr = x_dist_tr.mul_add(x_dist_tr, y_dist_tr * y_dist_tr);
-        let dist_bl = x_dist_bl.mul_add(x_dist_bl, y_dist_bl * y_dist_bl);
-        let dist_br = x_dist_br.mul_add(x_dist_br, y_dist_br * y_dist_br);
+        let dist_tl = F::dist(x_dist_tl, F::modify_y(y_dist_tl, &gen_cfg), &gen_cfg);
+        let dist_tr = F::dist(x_dist_tr, F::modify_y(y_dist_tr, &gen_cfg), &gen_cfg);
+        let dist_bl = F::dist(x_dist_bl, F::modify_y(y_dist_bl, &gen_cfg), &gen_cfg);
+        let dist_br = F::dist(x_dist_br, F::modify_y(y_dist_br, &gen_cfg), &gen_cfg);
 
         let mut min_dist = dist_tl.min(dist_tr).min(dist_bl).min(dist_br);
 
@@ -123,14 +126,14 @@ impl<F: DistanceFn> BatchGenerator<2> for Cellular<F> {
             let y_dist_bbr = ((hash_bbr >> 9) | exp_bits).raw_cast::<f32>() - y_dist_hi;
             let y_dist_brr = ((hash_brr >> 9) | exp_bits).raw_cast::<f32>() - y_dist_hi - one;
 
-            let dist_ttl = x_dist_ttl.mul_add(x_dist_ttl, y_dist_ttl * y_dist_ttl);
-            let dist_tll = x_dist_tll.mul_add(x_dist_tll, y_dist_tll * y_dist_tll);
-            let dist_ttr = x_dist_ttr.mul_add(x_dist_ttr, y_dist_ttr * y_dist_ttr);
-            let dist_trr = x_dist_trr.mul_add(x_dist_trr, y_dist_trr * y_dist_trr);
-            let dist_bbl = x_dist_bbl.mul_add(x_dist_bbl, y_dist_bbl * y_dist_bbl);
-            let dist_bll = x_dist_bll.mul_add(x_dist_bll, y_dist_bll * y_dist_bll);
-            let dist_bbr = x_dist_bbr.mul_add(x_dist_bbr, y_dist_bbr * y_dist_bbr);
-            let dist_brr = x_dist_brr.mul_add(x_dist_brr, y_dist_brr * y_dist_brr);
+            let dist_ttl = F::dist(x_dist_ttl, F::modify_y(y_dist_ttl, &gen_cfg), &gen_cfg);
+            let dist_tll = F::dist(x_dist_tll, F::modify_y(y_dist_tll, &gen_cfg), &gen_cfg);
+            let dist_ttr = F::dist(x_dist_ttr, F::modify_y(y_dist_ttr, &gen_cfg), &gen_cfg);
+            let dist_trr = F::dist(x_dist_trr, F::modify_y(y_dist_trr, &gen_cfg), &gen_cfg);
+            let dist_bbl = F::dist(x_dist_bbl, F::modify_y(y_dist_bbl, &gen_cfg), &gen_cfg);
+            let dist_bll = F::dist(x_dist_bll, F::modify_y(y_dist_bll, &gen_cfg), &gen_cfg);
+            let dist_bbr = F::dist(x_dist_bbr, F::modify_y(y_dist_bbr, &gen_cfg), &gen_cfg);
+            let dist_brr = F::dist(x_dist_brr, F::modify_y(y_dist_brr, &gen_cfg), &gen_cfg);
 
             let outer_min = dist_ttl
                 .min(dist_tll)
@@ -144,7 +147,6 @@ impl<F: DistanceFn> BatchGenerator<2> for Cellular<F> {
             min_dist = min_dist.min(outer_min);
         }
 
-        // Sqrt: 1
-        min_dist.sqrt()
+        F::finalize(min_dist, &gen_cfg)
     }
 }

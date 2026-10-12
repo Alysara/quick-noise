@@ -2,16 +2,16 @@ use std::marker::PhantomData;
 
 use simply_simd::SimdToArray;
 
-use crate::api::batch::{Zip, multizip};
+use crate::api::batch::{ Zip, multizip };
 
-use crate::api::batch::interface::{BatchNoise, DimIter};
+use crate::api::batch::interface::{ BatchNoise, DimIter };
 use crate::api::configs::*;
 use crate::api::octave::Octave;
 use crate::api::parameters::*;
 use crate::math::random::Random;
 use crate::noise::combiners::Combiner;
-use crate::simd::{Arch, Simd};
-use crate::{BatchGenerator, HybridMulti, PingPong, Ridged, Terrace};
+use crate::simd::{ Arch, Simd };
+use crate::{ BatchGenerator, HybridMulti, PingPong, Ridged, Terrace };
 
 pub struct OctaveBatchNoiseBuilder<
     'a,
@@ -19,10 +19,11 @@ pub struct OctaveBatchNoiseBuilder<
     C: Combiner,
     G: BatchGenerator<D>,
     A: Arch,
-    I: DimIter<A, D>,
+    I: DimIter<A, D>
 > {
     noise_config: OctaveNoiseConfig<D>,
     combiner_config: C::Config,
+    gen_config: G::GenConfig,
     octave_list: &'a [Octave<D>],
     iters: I,
     _noise_type: PhantomData<G>,
@@ -80,6 +81,7 @@ where
         Self {
             noise_config: Default::default(),
             combiner_config: Default::default(),
+            gen_config: Default::default(),
             octave_list,
             iters: multizip((x_iter, y_iter)),
             _noise_type: PhantomData::<G>,
@@ -92,11 +94,12 @@ where
         combiner_config: C::Config,
         octave_list: &'a [Octave<2>],
         x_iter: X,
-        y_iter: Y,
+        y_iter: Y
     ) -> Self {
         Self {
             noise_config,
             combiner_config,
+            gen_config: Default::default(),
             octave_list,
             iters: multizip((x_iter, y_iter)),
             _noise_type: PhantomData::<G>,
@@ -151,6 +154,7 @@ where
         Self {
             noise_config: Default::default(),
             combiner_config: Default::default(),
+            gen_config: Default::default(),
             octave_list,
             iters: multizip((x_iter, y_iter, z_iter)),
             _noise_type: PhantomData::<G>,
@@ -164,11 +168,12 @@ where
         octave_list: &'a [Octave<3>],
         x_iter: X,
         y_iter: Y,
-        z_iter: Z,
+        z_iter: Z
     ) -> Self {
         Self {
             noise_config,
             combiner_config,
+            gen_config: Default::default(),
             octave_list,
             iters: multizip((x_iter, y_iter, z_iter)),
             _noise_type: PhantomData::<G>,
@@ -233,8 +238,9 @@ impl<'a, const D: usize, C: Combiner, G: BatchGenerator<D>, A: Arch, I: DimIter<
         BatchNoise::<D, C, G>::sample_with_octaves(
             self.noise_config,
             self.combiner_config,
+            self.gen_config,
             self.octave_list,
-            self.iters,
+            self.iters
         )
     });
 }

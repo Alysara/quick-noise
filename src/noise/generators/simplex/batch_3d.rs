@@ -10,11 +10,14 @@ const SKEW_3D: f32 = 1.0 / 3.0;
 const UNSKEW_3D: f32 = 1.0 / 6.0;
 
 impl BatchGenerator<3> for Simplex {
+    type GenConfig = ();
+
     #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 3],
         freq: [Simd<f32, A>; 3],
+        _gen_cfg: <Self as BatchGenerator<2>>::GenConfig
     ) -> Simd<f32, A> {
         // Constants.
         let skew: Simd<f32, A> = Simd::splat(SKEW_3D);

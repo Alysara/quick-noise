@@ -47,6 +47,7 @@ pub trait DimIter<A: Arch, const D: usize>: Iterator<Item: DimTuple<A, D>> {}
 impl<A: Arch, const D: usize, T: DimTuple<A, D>, I: Iterator<Item = T>> DimIter<A, D> for I {}
 
 pub trait BatchGenerator<const D: usize> {
+    type GenConfig: Copy + Default;
     /// Generates noise using simd registers.
     ///
     /// # Parameters
@@ -57,6 +58,7 @@ pub trait BatchGenerator<const D: usize> {
         seed: u32,
         input: [Simd<f32, A>; D],
         freq: [Simd<f32, A>; D],
+        gen_cfg: Self::GenConfig
     ) -> Simd<f32, A>;
 }
 

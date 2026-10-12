@@ -36,7 +36,7 @@ pub trait DistanceFn: Default + Copy + Clone + PartialEq {
     type DistanceConfig: Copy + Default;
 
     /// Per-row y delta, hoisted out of the loop.
-    fn per_row_y<A: Arch>(dy: Simd<f32, A>, cfg: &Self::DistanceConfig) -> Simd<f32, A>;
+    fn modify_y<A: Arch>(dy: Simd<f32, A>, cfg: &Self::DistanceConfig) -> Simd<f32, A>;
 
     /// Distance from dx and dy.
     fn dist<A: Arch>(
@@ -89,7 +89,7 @@ impl DistanceFn for Euclidean {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn per_row_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
         dy * dy + dy.abs()
     }
 
@@ -117,7 +117,7 @@ impl DistanceFn for EuclideanSquared {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn per_row_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
         dy * dy
     }
 
@@ -140,7 +140,7 @@ impl DistanceFn for Hybrid {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn per_row_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
         dy
     }
 
@@ -163,7 +163,7 @@ impl DistanceFn for Manhattan {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn per_row_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
         dy.abs()
     }
 
@@ -186,7 +186,7 @@ impl DistanceFn for MaxAxis {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn per_row_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
         dy.abs()
     }
 
@@ -212,7 +212,7 @@ impl DistanceFn for Minowski {
     type DistanceConfig = MinkowskiConfig;
 
     #[inline(always)]
-    fn per_row_y<A: Arch>(dy: Simd<f32, A>, cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+    fn modify_y<A: Arch>(dy: Simd<f32, A>, cfg: &Self::DistanceConfig) -> Simd<f32, A> {
         dy.abs().pow(Simd::splat(cfg.p))
     }
 
@@ -243,8 +243,7 @@ pub struct Cellular<D: DistanceFn> {
 }
 
 pub mod cellular {
-    pub mod batch_2d_euclidean;
-    pub mod batch_2d_euclidean_sq;
+    pub mod batch_2d;
     pub mod batch_3d;
     pub mod grid_2d;
 }

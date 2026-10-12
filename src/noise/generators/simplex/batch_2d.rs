@@ -13,11 +13,14 @@ use crate::noise::util::constants::{
 };
 
 impl BatchGenerator<2> for Simplex {
+    type GenConfig = ();
+
     #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 2],
         freq: [Simd<f32, A>; 2],
+        _gen_cfg: <Self as BatchGenerator<2>>::GenConfig
     ) -> Simd<f32, A> {
         // Constants.
         let skew: Simd<f32, A> = Simd::splat(SKEW_2D);

@@ -372,7 +372,8 @@ mod tests {
         let gain = Simplex::sample_batch::<StaticArch>(
             seed,
             [Simd::splat(px), Simd::splat(py)],
-            [Simd::splat(freq), Simd::splat(freq)]
+            [Simd::splat(freq), Simd::splat(freq)],
+            ()
         );
         gain.to_array()[0]
     }
