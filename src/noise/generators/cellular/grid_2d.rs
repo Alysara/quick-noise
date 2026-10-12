@@ -378,7 +378,7 @@ fn fill_cell<A: Arch, C: Combiner, F: DistanceFn, const INIT: bool, const FINAL:
         let dy_mod: [MaybeUninit<Simd<f32, A>>; 12] = std::array::from_fn(|c| {
             let jy = unsafe { (*jit.parts.add(c * 2 + 1)).assume_init() };
             let dy = Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy);
-            MaybeUninit::new(F::modify_y::<A>(dy, &dst_cfg))
+            MaybeUninit::new(F::modify_delta::<A>(dy, &dst_cfg))
         });
 
         let mut index = x_idx;
@@ -450,8 +450,9 @@ fn fill_row_block<
     for c in 0..4 {
         let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
         let dy = unsafe { *dy_mod[c].assume_init_ref() };
-        let dx = sx - jx;
-        min = min.min(F::dist(dx, dy, &dst_cfg));
+        let dx = F::modify_delta(sx - jx, &dst_cfg);
+        let deltas = [dx, dy];
+        min = min.min(F::dist(deltas, &dst_cfg));
     }
 
     let x_edge_lo = sx + Simd::<f32, A>::splat(0.5);
@@ -475,8 +476,9 @@ fn fill_row_block<
         for c in 4..8 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
             let dy = unsafe { *dy_mod[c].assume_init_ref() };
-            let dx = sx - jx;
-            min = min.min(F::dist(dx, dy, &dst_cfg));
+            let dx = F::modify_delta(sx - jx, &dst_cfg);
+            let deltas = [dx, dy];
+            min = min.min(F::dist(deltas, &dst_cfg));
         }
     }
 
@@ -484,8 +486,9 @@ fn fill_row_block<
         for c in 8..12 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
             let dy = unsafe { *dy_mod[c].assume_init_ref() };
-            let dx = sx - jx;
-            min = min.min(F::dist(dx, dy, &dst_cfg));
+            let dx = F::modify_delta(sx - jx, &dst_cfg);
+            let deltas = [dx, dy];
+            min = min.min(F::dist(deltas, &dst_cfg));
         }
     }
 

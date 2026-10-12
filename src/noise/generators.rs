@@ -36,12 +36,11 @@ pub trait DistanceFn: Default + Copy + Clone + PartialEq {
     type DistanceConfig: Copy + Default;
 
     /// Per-row y delta, hoisted out of the loop.
-    fn modify_y<A: Arch>(dy: Simd<f32, A>, cfg: &Self::DistanceConfig) -> Simd<f32, A>;
+    fn modify_delta<A: Arch>(delta: Simd<f32, A>, cfg: &Self::DistanceConfig) -> Simd<f32, A>;
 
-    /// Distance from dx and dy.
-    fn dist<A: Arch>(
-        dx: Simd<f32, A>,
-        dy: Simd<f32, A>,
+    /// Distance from dx and delta.
+    fn dist<A: Arch, const D: usize>(
+        deltas: [Simd<f32, A>; D],
         cfg: &Self::DistanceConfig
     ) -> Simd<f32, A>;
 
@@ -89,17 +88,19 @@ impl DistanceFn for Euclidean {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
-        dy * dy + dy.abs()
+    fn modify_delta<A: Arch>(delta: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+        delta * delta
     }
 
     #[inline(always)]
-    fn dist<A: Arch>(
-        dx: Simd<f32, A>,
-        dy_sq: Simd<f32, A>,
+    fn dist<A: Arch, const D: usize>(
+        deltas_sq: [Simd<f32, A>; D],
         _cfg: &Self::DistanceConfig
     ) -> Simd<f32, A> {
-        dx.mul_add(dx, dy_sq)
+        deltas_sq
+            .iter()
+            .copied()
+            .fold(Simd::splat(0.0), |sum, delta| sum + delta)
     }
 
     #[inline(always)]
@@ -117,17 +118,19 @@ impl DistanceFn for EuclideanSquared {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
-        dy * dy
+    fn modify_delta<A: Arch>(delta: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+        delta * delta
     }
 
     #[inline(always)]
-    fn dist<A: Arch>(
-        dx: Simd<f32, A>,
-        dy_sq: Simd<f32, A>,
+    fn dist<A: Arch, const D: usize>(
+        deltas_sq: [Simd<f32, A>; D],
         _cfg: &Self::DistanceConfig
     ) -> Simd<f32, A> {
-        dx.mul_add(dx, dy_sq)
+        deltas_sq
+            .iter()
+            .copied()
+            .fold(Simd::splat(0.0), |sum, delta| sum + delta)
     }
 
     #[inline(always)]
@@ -140,17 +143,20 @@ impl DistanceFn for Hybrid {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
-        dy
+    fn modify_delta<A: Arch>(delta: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+        delta
     }
 
     #[inline(always)]
-    fn dist<A: Arch>(
-        dx: Simd<f32, A>,
-        dy: Simd<f32, A>,
+    fn dist<A: Arch, const D: usize>(
+        deltas: [Simd<f32, A>; D],
         _cfg: &Self::DistanceConfig
     ) -> Simd<f32, A> {
-        dx.mul_add(dx, dy * dy) + dy.abs() + dx.abs()
+        deltas
+            .iter()
+            .copied()
+            .map(|delta| delta.mul_add(delta, delta.abs()))
+            .fold(Simd::splat(0.0), |sum, delta| sum + delta)
     }
 
     #[inline(always)]
@@ -163,17 +169,19 @@ impl DistanceFn for Manhattan {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
-        dy.abs()
+    fn modify_delta<A: Arch>(delta: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+        delta.abs()
     }
 
     #[inline(always)]
-    fn dist<A: Arch>(
-        dx: Simd<f32, A>,
-        dy_abs: Simd<f32, A>,
+    fn dist<A: Arch, const D: usize>(
+        deltas_abs: [Simd<f32, A>; D],
         _cfg: &Self::DistanceConfig
     ) -> Simd<f32, A> {
-        dx.abs() + dy_abs
+        deltas_abs
+            .iter()
+            .copied()
+            .fold(Simd::splat(0.0), |sum, delta| sum + delta)
     }
 
     #[inline(always)]
@@ -186,17 +194,19 @@ impl DistanceFn for MaxAxis {
     type DistanceConfig = ();
 
     #[inline(always)]
-    fn modify_y<A: Arch>(dy: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
-        dy.abs()
+    fn modify_delta<A: Arch>(delta: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+        delta.abs()
     }
 
     #[inline(always)]
-    fn dist<A: Arch>(
-        dx: Simd<f32, A>,
-        dy_abs: Simd<f32, A>,
+    fn dist<A: Arch, const D: usize>(
+        deltas_abs: [Simd<f32, A>; D],
         _cfg: &Self::DistanceConfig
     ) -> Simd<f32, A> {
-        dx.abs().max(dy_abs)
+        deltas_abs
+            .iter()
+            .copied()
+            .fold(Simd::splat(0.0), |max, delta| max.max(delta))
     }
 
     #[inline(always)]
@@ -212,17 +222,19 @@ impl DistanceFn for Minowski {
     type DistanceConfig = MinkowskiConfig;
 
     #[inline(always)]
-    fn modify_y<A: Arch>(dy: Simd<f32, A>, cfg: &Self::DistanceConfig) -> Simd<f32, A> {
-        dy.abs().pow(Simd::splat(cfg.p))
+    fn modify_delta<A: Arch>(delta: Simd<f32, A>, cfg: &Self::DistanceConfig) -> Simd<f32, A> {
+        delta.abs().pow(Simd::splat(cfg.p))
     }
 
     #[inline(always)]
-    fn dist<A: Arch>(
-        dx: Simd<f32, A>,
-        dy_p: Simd<f32, A>,
-        cfg: &Self::DistanceConfig
+    fn dist<A: Arch, const D: usize>(
+        deltas_p: [Simd<f32, A>; D],
+        _cfg: &Self::DistanceConfig
     ) -> Simd<f32, A> {
-        dx.abs().pow(Simd::splat(cfg.p)) + dy_p
+        deltas_p
+            .iter()
+            .copied()
+            .fold(Simd::splat(0.0), |sum, delta| sum + delta)
     }
 
     #[inline(always)]
