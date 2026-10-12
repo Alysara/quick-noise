@@ -12,14 +12,12 @@ use crate::noise::util::grid_helpers::{
     ArenaBuffer,
     InterpolationConfig,
     MaybeUninitSliceSimdExt,
-    maybe_tail_load,
-    maybe_tail_store,
     pad_grid_size,
     validate_grid_size,
     validate_state_size,
+    *
 };
 use crate::noise::util::constants::{ BYTE_SHUFFLE, HASH_PRIME };
-use crate::noise::util::grid_helpers::*;
 use crate::{ GridGenerator, Perlin };
 
 pub const GRADIENTS_3D: [[f32; 3]; 16] = [
@@ -291,55 +289,6 @@ pub(super) fn fill_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
     }
 }
 
-#[inline(always)]
-pub(super) fn grid_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
-    grid_data: &PVGridData<3>,
-    gradients: &mut PerlinGradients3D<'a>
-) {
-    let (grad_buffer, left, right) = if IS_FRONT {
-        (&mut gradients.scratch[0], &mut gradients.blf, &mut gradients.brf)
-    } else {
-        (&mut gradients.scratch[1], &mut gradients.blb, &mut gradients.brb)
-    };
-
-    let mut x_cur_index = 0;
-    for x_it in 0..grid_data.num_loops[0] {
-        // Find range of gradients to set.
-        let x_next_index = unsafe { grid_data.grid_indices[0].get_unchecked(x_it).assume_init() };
-        let mut amount = (x_next_index - x_cur_index) as isize;
-
-        unsafe {
-            let l = grad_buffer.get_unchecked(x_it).assume_init() as usize;
-            let r = grad_buffer.get_unchecked(x_it + 1).assume_init() as usize;
-
-            let l = GRADIENTS_3D.get_unchecked(l);
-            let r = GRADIENTS_3D.get_unchecked(r);
-
-            let lx = Simd::<f32, A>::splat(l[0]);
-            let ly = Simd::<f32, A>::splat(l[1]);
-            let lz = Simd::<f32, A>::splat(l[2]);
-            let rx = Simd::<f32, A>::splat(r[0]);
-            let ry = Simd::<f32, A>::splat(r[1]);
-            let rz = Simd::<f32, A>::splat(r[2]);
-
-            let mut index = x_cur_index as usize;
-            while amount > 0 {
-                left[0].write_simd(index, lx);
-                left[1].write_simd(index, ly);
-                left[2].write_simd(index, lz);
-                right[0].write_simd(index, rx);
-                right[1].write_simd(index, ry);
-                right[2].write_simd(index, rz);
-
-                amount -= Simd::<f32, A>::LANES as isize;
-                index += Simd::<f32, A>::LANES;
-            }
-        }
-
-        x_cur_index = x_next_index;
-    }
-}
-
 pub(crate) struct DottedTrilerpBuffers<'a> {
     y_tf_offset: &'a mut [MaybeUninit<f32>],
     y_bf_offset: &'a mut [MaybeUninit<f32>],
@@ -421,6 +370,12 @@ pub(super) fn dotted_trilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL
         grid_data.distances[2].get_unchecked(ranges.1.start).assume_init()
     };
 
+    let inc_weight = if C::MANUAL_WEIGHT_PROCESSING {
+        1.0
+    } else {
+        grid_data.weight
+    };
+
     let mut executer = DottedTrilerpExecuter::<A, C, INIT, FINAL> {
         config,
         fractal_config,
@@ -433,10 +388,10 @@ pub(super) fn dotted_trilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL
         top_step: Default::default(),
         dif_step: Default::default(),
         weight: Simd::splat(grid_data.weight),
-        y_inc_weighted: Simd::splat(grid_data.increment[1] * grid_data.weight),
+        y_inc_weighted: Simd::splat(grid_data.increment[1] * inc_weight),
         y_inc_hi: Simd::splat(y_frac_start),
         y_inc_lo: Simd::splat(y_frac_start - 1.0),
-        z_inc_weighted: Simd::splat(grid_data.increment[2] * grid_data.weight),
+        z_inc_weighted: Simd::splat(grid_data.increment[2] * inc_weight),
         z_inc_hi: Simd::splat(z_frac_start),
         z_inc_lo: Simd::splat(z_frac_start - 1.0),
     };
@@ -639,16 +594,28 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool> DottedTriler
                     .mul_add(y_brb - y_blb, y_blb)
                     .mul_sub(self.y_inc_weighted, y_bf_offset);
 
-                let tf_base =
-                    x_lerp.mul_add(sum_prod_trf - sum_prod_tlf, sum_prod_tlf) * self.weight;
-                let bf_base =
-                    x_lerp.mul_add(sum_prod_brf - sum_prod_blf, sum_prod_blf) * self.weight;
-                let hi_base_dif = x_lerp
-                    .mul_add(sum_prod_trb - sum_prod_tlb, sum_prod_tlb)
-                    .mul_sub(self.weight, tf_base);
-                let lo_base_dif = x_lerp
-                    .mul_add(sum_prod_brb - sum_prod_blb, sum_prod_blb)
-                    .mul_sub(self.weight, bf_base);
+                let mut tf_base = x_lerp.mul_add(sum_prod_trf - sum_prod_tlf, sum_prod_tlf);
+                let mut bf_base = x_lerp.mul_add(sum_prod_brf - sum_prod_blf, sum_prod_blf);
+
+                let mut hi_base_dif = x_lerp.mul_add(sum_prod_trb - sum_prod_tlb, sum_prod_tlb);
+                let mut lo_base_dif = x_lerp.mul_add(sum_prod_brb - sum_prod_blb, sum_prod_blb);
+
+                if !C::MANUAL_WEIGHT_PROCESSING {
+                    tf_base *= self.weight;
+                    bf_base *= self.weight;
+                    hi_base_dif = hi_base_dif.mul_sub(self.weight, tf_base);
+                    lo_base_dif = lo_base_dif.mul_sub(self.weight, bf_base);
+                } else {
+                    hi_base_dif -= tf_base;
+                    lo_base_dif -= bf_base;
+                }
+
+                // let mut hi_base_dif = x_lerp
+                //     .mul_add(sum_prod_trb - sum_prod_tlb, sum_prod_tlb)
+                //     .mul_sub(self.weight, tf_base);
+                // let mut lo_base_dif = x_lerp
+                //     .mul_add(sum_prod_brb - sum_prod_blb, sum_prod_blb)
+                //     .mul_sub(self.weight, bf_base);
 
                 buffers.z_tf_offset.write_simd_aligned(x, z_tf_offset);
                 buffers.z_bf_offset.write_simd_aligned(x, z_bf_offset);
@@ -789,7 +756,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool> DottedTriler
         // Initialize sample if it is the first and apply combiner algorithm
         // for subsequent samples.
         let (cur_state, mut result) = if INIT {
-            C::initialize_sample(self.fractal_config, output)
+            C::initialize_sample(self.fractal_config, self.weight, output)
         } else {
             let mut cur_state = C::State::<A>::default();
             for i in 0..C::State::<A>::STATE_SIZE {
@@ -799,7 +766,13 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool> DottedTriler
             }
 
             let cur_result = unsafe { load_simd_rw(dst, index, self.config, access_mode) };
-            C::apply_sample(self.fractal_config, cur_state, cur_result, output)
+            C::apply_sample(
+                self.fractal_config,
+                cur_state,
+                self.weight,
+                cur_result,
+                output,
+            )
         };
 
         // Save changes to state.

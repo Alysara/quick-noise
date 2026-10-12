@@ -1,16 +1,38 @@
 use quick_noise::emit::NoiseImageExt;
-use quick_noise::{Billow, Combiner, Fbm, Grid, Octave, Perlin, PingPong, PingPongConfig, Value};
+use quick_noise::{
+    BatchNoise, Billow, Combiner, Fbm, Grid, Octave, Perlin, PingPong, PingPongConfig, Ridged,
+    Value,
+};
 use simply_simd::{ScalarArch, Simd, StaticArch};
 #[cfg(feature = "image")]
 fn main() {
-    // let debug_grid = Grid::<2>::new(243, 243);
+    use quick_noise::{Cellular, Euclidean, EuclideanSquared, Simplex};
 
-    // debug_grid
-    //     .builder::<Billow, Perlin>()
-    //     .octaves(4)
-    //     .frequency(1.0 / 16.0)
-    //     .into_iter()
-    //     .to_grayscale_image(243, 243, "noise_images/perlin_debug_2d.png");
+    let debug_grid = Grid::<2>::new(1024, 1024).seed(0);
+    let debug_grid_3d = Grid::<3>::new(64, 64, 64).seed(0);
+
+    debug_grid
+        .builder::<Ridged, Perlin>()
+        .octaves(6)
+        .frequency(1.0 / 64.0)
+        .seed(0)
+        .into_iter()
+        .to_grayscale_image(1024, 1024, "noise_images/perlin_debug_2d.png");
+
+    debug_grid_3d
+        .builder::<Ridged, Perlin>()
+        .octaves(6)
+        .frequency(1.0 / 32.0)
+        .seed(0)
+        .into_iter()
+        .to_grayscale_image(64, 4096, "noise_images/perlin_debug_3d.png");
+
+    BatchNoise::<2, Ridged, Cellular<EuclideanSquared>>::builder(debug_grid.x_iter(), debug_grid.y_iter())
+        .octaves(6)
+        .frequency(1.0 / 64.0)
+        .seed_with_grid(0, 0)
+        .into_iter()
+        .to_grayscale_image(1024, 1024, "noise_images/perlin_debug_2d_truth.png");
 
     // let mut result = vec![0.0; 243 * 243];
     // BatchNoise::<2, Fbm, Perlin>::builder(debug_grid.x_iter(), debug_grid.y_iter())
@@ -36,19 +58,19 @@ fn main() {
     //     .into_iter()
     //     .to_grayscale_image(243, 243, "noise_images/perlin_debug_2d.png");
 
-    let debug_grid_3d = Grid::<3>::new(32, 32, 32);
-
-    let mut result = [0.0; 32768];
-
-    for _ in 0..1000000 {
-        debug_grid_3d
-            .builder::<Fbm, Perlin>()
-            .octaves(1)
-            .frequency(1.0 / 32.0)
-            .fill(result.as_mut_slice())
-    }
-
-    std::hint::black_box(&result);
+    // let debug_grid_3d = Grid::<3>::new(32, 32, 32);
+    //
+    // let mut result = [0.0; 32768];
+    //
+    // for _ in 0..1000000 {
+    //     debug_grid_3d
+    //         .builder::<Fbm, Perlin>()
+    //         .octaves(1)
+    //         .frequency(1.0 / 32.0)
+    //         .fill(result.as_mut_slice())
+    // }
+    //
+    // std::hint::black_box(&result);
 
     // .into_iter()
     // .to_grayscale_image(256, 256 * 10, "noise_images/single_pass_perlin_3d.png");

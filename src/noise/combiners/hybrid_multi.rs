@@ -1,5 +1,6 @@
 use simply_simd::{Arch, Simd};
 
+use crate::noise::combiners::CombinerConfig;
 use crate::{Combiner, CombinerArray};
 
 /// Config struct for the HybridMulti combiner.
@@ -19,6 +20,10 @@ impl Default for HybridMultiConfig {
     }
 }
 
+impl CombinerConfig for HybridMultiConfig {
+    fn populate_fields(&mut self, _octaves: usize, _amplitude: f32) {}
+}
+
 /// Combines noise using a weighted signal that propagates into a running weight
 /// for subsequent samples by multiplication.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
@@ -32,6 +37,7 @@ impl Combiner for HybridMulti {
     fn apply_sample<A: Arch>(
         config: &HybridMultiConfig,
         state: Self::State<A>,
+        _weight: Simd<f32, A>,
         cur_result: Simd<f32, A>,
         new_sample: Simd<f32, A>,
     ) -> (Self::State<A>, Simd<f32, A>) {
@@ -49,6 +55,7 @@ impl Combiner for HybridMulti {
     #[inline(always)]
     fn initialize_sample<A: Arch>(
         config: &HybridMultiConfig,
+        _weight: Simd<f32, A>,
         new_sample: Simd<f32, A>,
     ) -> (Self::State<A>, Simd<f32, A>) {
         let zero = Simd::splat(0.0);

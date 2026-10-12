@@ -489,10 +489,13 @@ fn fill_row_block<
         }
     }
 
-    let raw_val = F::finalize(min, &dst_cfg) * weight_vec;
+    let mut raw_val = F::finalize(min, &dst_cfg);
+    if !C::MANUAL_WEIGHT_PROCESSING {
+        raw_val *= weight_vec;
+    }
 
     let (cur_state, mut result) = if INIT {
-        C::initialize_sample(combiner_config, raw_val)
+        C::initialize_sample(combiner_config, weight_vec, raw_val)
     } else {
         let mut cur_state = C::State::<A>::default();
         for i in 0..C::State::<A>::STATE_SIZE {
@@ -502,7 +505,7 @@ fn fill_row_block<
             };
         }
         let cur_result = unsafe { maybe_tail_load::<A, IS_TAIL>(sample_start..sample_end, dst) };
-        C::apply_sample(combiner_config, cur_state, cur_result, raw_val)
+        C::apply_sample(combiner_config, cur_state, weight_vec, cur_result, raw_val)
     };
 
     if !FINAL {

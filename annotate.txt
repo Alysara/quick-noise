@@ -1,0 +1,1027 @@
+ Percent |	Source code & Disassembly of grid-4542412695be46c9 for cpu_core/cycles/Pu (8147 samples, percent: local period)
+-------------------------------------------------------------------------------------------------------------------------------
+         :
+         :
+         :
+         : 3     Disassembly of section .text:
+         :
+         : 5     000000000009bac0 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>>:
+         : 6     }
+         : 7     }
+         :
+         : 9     impl<'a, const D: usize> PVGridData<'a, D> {
+         : 10    #[inline(never)]
+         : 11    pub fn new<A: Arch, const LERP: u8>(
+    0.00 :   9bac0:  push   %rbp
+    0.00 :   9bac1:  push   %r15
+    0.00 :   9bac3:  push   %r14
+    0.62 :   9bac5:  push   %r13
+    0.00 :   9bac7:  push   %r12
+    0.00 :   9bac9:  push   %rbx
+    0.00 :   9baca:  sub    $0xc8,%rsp
+         : 19    ) -> Self {
+         : 20    let lerp_type = Lerp::from_u8(LERP);
+         : 21    let lanes = Simd::<f32, A>::LANES;
+         :
+         : 23    let total_size = params.grid_size.iter().product();
+         : 24    let increment: [f32; D] = from_fn(|i| params.frequency[i] * params.magnification);
+    0.52 :   9bad1:  vmovsd 0x30(%rsi),%xmm7
+    0.01 :   9bad6:  vbroadcastss 0x40(%rsi),%xmm0
+    0.00 :   9badc:  vmulps %xmm7,%xmm0,%xmm1
+    0.83 :   9bae0:  vmovshdup %xmm1,%xmm0
+         : 29    let scale: [f32; D] = from_fn(|i| 1.0 / increment[i]);
+         :
+         : 31    // Get the starting gradient coordinates and how far the first sample is to the next one.
+         : 32    let scaled_pos: [f64; D] = from_fn(|i| params.position[i] * increment[i] as f64);
+    1.26 :   9bae4:  vcvtss2sd %xmm1,%xmm1,%xmm2
+    1.57 :   9bae8:  vmulsd 0x20(%rsi),%xmm2,%xmm2
+    0.00 :   9baed:  vmovaps %xmm0,0x50(%rsp)
+    0.20 :   9baf3:  vcvtss2sd %xmm0,%xmm0,%xmm3
+    0.88 :   9baf7:  vmulsd 0x28(%rsi),%xmm3,%xmm3
+    3.55 :   9bafc:  vroundsd $0x9,%xmm2,%xmm2,%xmm0
+    0.81 :   9bb02:  vroundsd $0x9,%xmm3,%xmm3,%xmm6
+         : 40    let floored: [f64; D] = from_fn(|i| scaled_pos[i].floor());
+         : 41    let mut grid_start: [i32; D] = from_fn(|i| unsafe { floored[i].to_int_unchecked::<i32>() });
+         :
+         : 43    let mut frac_start: [f32; D] = from_fn(|i| {
+         : 44    (scaled_pos[i] - grid_start[i] as f64).max(0.0) as f32
+    1.86 :   9bb08:  vcvttpd2dq %xmm0,%xmm4
+    1.49 :   9bb0c:  vcvtdq2pd %xmm4,%xmm4
+    1.26 :   9bb10:  vsubsd %xmm4,%xmm2,%xmm2
+    0.00 :   9bb14:  vxorpd %xmm5,%xmm5,%xmm5
+    1.39 :   9bb18:  vmaxsd %xmm5,%xmm2,%xmm4
+    0.00 :   9bb1c:  vcvttpd2dq %xmm6,%xmm2
+    0.27 :   9bb20:  vcvtdq2pd %xmm2,%xmm2
+    0.01 :   9bb24:  vsubsd %xmm2,%xmm3,%xmm2
+    0.17 :   9bb28:  vmaxsd %xmm5,%xmm2,%xmm5
+    0.00 :   9bb2c:  vmovsd -0x863fc(%rip),%xmm2        # 15738 <anon.027c59ad07e785e8702d80afede58061.15.llvm.16231916899884949472+0x38>
+         : 55    });
+         :
+         : 57    // Renormalize due to f64 precision.
+         : 58    for (grid, frac) in grid_start.iter_mut().zip(frac_start.iter_mut()) {
+         : 59    if *frac >= 1.0 {
+    0.14 :   9bb34:  vucomisd %xmm2,%xmm4
+    0.00 :   9bb38:  vxorps %xmm8,%xmm8,%xmm8
+    0.18 :   9bb3d:  vxorps %xmm11,%xmm11,%xmm11
+    0.33 :   9bb42:  jb     9bb5b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x9b>
+    0.00 :   9bb44:  vucomisd %xmm2,%xmm5
+    0.00 :   9bb48:  jb     9bb65 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xa5>
+    0.00 :   9bb4a:  mov    (%rcx),%rax
+    0.00 :   9bb4d:  mov    0x8(%rdx),%r8
+    0.00 :   9bb51:  sub    %rax,%r8
+    0.00 :   9bb54:  jae    9bb79 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xb9>
+    0.00 :   9bb56:  jmp    9cb0b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x104b>
+    0.79 :   9bb5b:  vcvtsd2ss %xmm4,%xmm4,%xmm11
+    0.00 :   9bb5f:  vucomisd %xmm2,%xmm5
+    0.01 :   9bb63:  jae    9bb4a <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x8a>
+    0.37 :   9bb65:  vcvtsd2ss %xmm5,%xmm5,%xmm8
+    0.00 :   9bb69:  mov    (%rcx),%rax
+    0.00 :   9bb6c:  mov    0x8(%rdx),%r8
+    0.00 :   9bb70:  sub    %rax,%r8
+    0.00 :   9bb73:  jb     9cb0b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x104b>
+    0.25 :   9bb79:  mov    0x8(%rcx),%r12
+    0.00 :   9bb7d:  sub    %r12,%r8
+    0.00 :   9bb80:  jb     9cb0b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x104b>
+    0.00 :   9bb86:  sub    %rax,%r8
+    0.00 :   9bb89:  jb     9cb0b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x104b>
+    0.33 :   9bb8f:  sub    %r12,%r8
+    0.00 :   9bb92:  jb     9cb0b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x104b>
+    0.00 :   9bb98:  sub    %rax,%r8
+    0.00 :   9bb9b:  jb     9cb0b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x104b>
+    0.00 :   9bba1:  sub    %r12,%r8
+    0.00 :   9bba4:  jb     9cb0b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x104b>
+    0.00 :   9bbaa:  vmovaps %xmm7,0x90(%rsp)
+    0.18 :   9bbb3:  vmovsd %xmm4,0x48(%rsp)
+    0.00 :   9bbb9:  vmovapd %xmm6,0xa0(%rsp)
+    0.00 :   9bbc2:  vmovaps %xmm0,0xb0(%rsp)
+    0.00 :   9bbcb:  mov    0x10(%rsi),%rbp
+    0.20 :   9bbcf:  mov    0x18(%rsi),%rcx
+    0.00 :   9bbd3:  mov    %rcx,0x8(%rsp)
+    0.00 :   9bbd8:  vbroadcastss -0x87bf9(%rip),%xmm2        # 13fe8 <__abi_tag+0x13cb4>
+    0.00 :   9bbe1:  mov    (%rdx),%r9
+    0.28 :   9bbe4:  lea    (%r9,%rax,4),%rcx
+    0.00 :   9bbe8:  mov    %rcx,0x38(%rsp)
+    0.00 :   9bbed:  lea    (%rcx,%r12,4),%r14
+    0.00 :   9bbf1:  lea    (%r14,%rax,4),%rbx
+    0.21 :   9bbf5:  lea    (%rbx,%r12,4),%r11
+    0.00 :   9bbf9:  lea    (%r11,%rax,4),%r10
+    0.00 :   9bbfd:  lea    (%r10,%r12,4),%r15
+    0.00 :   9bc01:  mov    %r15,(%rdx)
+    0.44 :   9bc04:  vdivps %xmm1,%xmm2,%xmm9
+    0.00 :   9bc08:  mov    %r8,0x8(%rdx)
+         : 109   let inc = increment[axis];
+         : 110   let frac = frac_start[axis];
+         : 111   let n_samples = params.grid_size[axis] as usize;
+         :
+         : 113   // ---- Cell boundaries (unchanged) -------------------------------------------------
+         : 114   let length = params.grid_size[axis] as i32 as f32;
+    0.00 :   9bc0c:  vcvtsi2ss %ebp,%xmm15,%xmm2
+    0.29 :   9bc10:  vfmadd213ss %xmm11,%xmm1,%xmm2
+    0.80 :   9bc15:  vroundss $0xa,%xmm2,%xmm2,%xmm2
+    2.38 :   9bc1b:  vcvttss2si %xmm2,%rdx
+         : 119   let full_stride = length.mul_add(inc, frac);
+         : 120   let last_boundary =
+         : 121   unsafe { full_stride.ceil().to_int_unchecked::<u32>() } as usize - 1;
+    0.00 :   9bc20:  mov    %edx,%r13d
+    0.00 :   9bc23:  mov    %r13,%rdx
+    0.10 :   9bc26:  dec    %rdx
+    0.24 :   9bc29:  je     9bd8d <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x2cd>
+    0.00 :   9bc2f:  vbroadcastss %xmm9,%ymm3
+    0.00 :   9bc34:  vmulss -0x87bf4(%rip),%xmm9,%xmm2        # 14048 <anon.12c1eae371deae4918d311a40cf5cd4b.21.llvm.14016888582514413234+0x28>
+    0.00 :   9bc3c:  vbroadcastss %xmm2,%ymm10
+    0.20 :   9bc41:  mov    %rdx,%r8
+    0.00 :   9bc44:  shr    $0x3,%r8
+    0.00 :   9bc48:  and    $0x7,%edx
+    0.11 :   9bc4b:  cmp    $0x1,%rdx
+    0.11 :   9bc4f:  sbb    $0xffffffffffffffff,%r8
+    0.00 :   9bc53:  vmovss -0x87c73(%rip),%xmm2        # 13fe8 <__abi_tag+0x13cb4>
+         : 135   unsafe {
+         : 136   std::hint::assert_unchecked(last_boundary < padded_size[axis]);
+         : 137   }
+         :
+         : 139   let scale_simd = Simd::splat(scale[axis]);
+         : 140   let first_boundary = Simd::splat(scale[axis] * (1.0 - frac));
+    0.00 :   9bc5b:  vsubss %xmm11,%xmm2,%xmm2
+    0.00 :   9bc60:  vmulss %xmm2,%xmm9,%xmm2
+    0.17 :   9bc64:  vbroadcastss %xmm2,%ymm2
+    0.00 :   9bc69:  vfmadd231ps -0x87252(%rip),%ymm3,%ymm2        # 14a20 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x580>
+    0.00 :   9bc72:  mov    %r8d,%edx
+    0.02 :   9bc75:  and    $0x7,%edx
+    0.20 :   9bc78:  cmp    $0x8,%r8
+    0.00 :   9bc7c:  jae    9bc86 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x1c6>
+    0.00 :   9bc7e:  xor    %r15d,%r15d
+    0.23 :   9bc81:  jmp    9bd66 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x2a6>
+    0.00 :   9bc86:  movabs $0x3ffffffffffffff8,%rcx
+    0.00 :   9bc90:  and    %rcx,%r8
+    0.00 :   9bc93:  xor    %r15d,%r15d
+    0.00 :   9bc96:  cs nopw 0x0(%rax,%rax,1)
+    0.00 :   9bca0:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9bca6:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9bcaa:  vmovapd %ymm3,(%r9,%r15,4)
+    0.00 :   9bcb0:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9bcb4:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9bcba:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9bcbe:  vmovapd %ymm3,0x20(%r9,%r15,4)
+    0.00 :   9bcc5:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9bcc9:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9bccf:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9bcd3:  vmovapd %ymm3,0x40(%r9,%r15,4)
+    0.00 :   9bcda:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9bcde:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9bce4:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9bce8:  vmovapd %ymm3,0x60(%r9,%r15,4)
+    0.00 :   9bcef:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9bcf3:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9bcf9:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9bcfd:  vmovapd %ymm3,0x80(%r9,%r15,4)
+    0.00 :   9bd07:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9bd0b:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9bd11:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9bd15:  vmovapd %ymm3,0xa0(%r9,%r15,4)
+    0.00 :   9bd1f:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9bd23:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9bd29:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9bd2d:  vmovapd %ymm3,0xc0(%r9,%r15,4)
+    0.00 :   9bd37:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9bd3b:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9bd41:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9bd45:  vmovapd %ymm3,0xe0(%r9,%r15,4)
+    0.00 :   9bd4f:  add    $0x40,%r15
+    0.00 :   9bd53:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9bd57:  add    $0xfffffffffffffff8,%r8
+    0.00 :   9bd5b:  jne    9bca0 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x1e0>
+    0.00 :   9bd61:  test   %rdx,%rdx
+    0.00 :   9bd64:  je     9bd8d <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x2cd>
+    0.00 :   9bd66:  lea    (%r9,%r15,4),%r8
+    0.00 :   9bd6a:  shl    $0x5,%edx
+    0.00 :   9bd6d:  xor    %r15d,%r15d
+    0.16 :   9bd70:  vroundps $0xa,%ymm2,%ymm3
+    0.10 :   9bd76:  vcvtps2dq %ymm3,%ymm3
+    0.12 :   9bd7a:  vmovapd %ymm3,(%r8,%r15,1)
+    0.16 :   9bd80:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9bd84:  add    $0x20,%r15
+    0.00 :   9bd88:  cmp    %r15,%rdx
+    0.00 :   9bd8b:  jne    9bd70 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x2b0>
+    0.11 :   9bd8d:  vmovsd %xmm5,0x40(%rsp)
+    0.05 :   9bd93:  mov    %rsi,0x10(%rsp)
+    0.38 :   9bd98:  mov    %r13,0x28(%rsp)
+         : 205   unsafe { grid_indices[axis].write_simd_aligned(i, boundaries) };
+         : 206   boundary_counter += boundary_stride;
+         : 207   }
+         :
+         : 209   unsafe {
+         : 210   *grid_indices[axis]
+    1.13 :   9bd9d:  mov    %ebp,-0x4(%r9,%r13,4)
+    0.07 :   9bda2:  vbroadcastss %xmm1,%ymm10
+    0.17 :   9bda7:  vbroadcastss %xmm11,%ymm11
+    0.00 :   9bdac:  mov    %rbp,%rcx
+    0.38 :   9bdaf:  shr    $0x3,%rcx
+    0.13 :   9bdb3:  xor    %r13d,%r13d
+    0.09 :   9bdb6:  mov    %rbp,0x30(%rsp)
+    0.00 :   9bdbb:  test   $0x7,%bpl
+    0.50 :   9bdbf:  setne  %r13b
+    0.11 :   9bdc3:  add    %rcx,%r13
+         : 221   // Writes at most `n_vecs * lanes <= n_samples + lanes - 1` elements, the same
+         : 222   // upper bound the old segment loop wrote to.
+         : 223   let n_vecs = n_samples.div_ceil(lanes);
+         : 224   let mut v = 0;
+         :
+         : 226   while v + 4 <= n_vecs {
+    0.11 :   9bdc6:  cmp    $0x4,%r13
+    0.00 :   9bdca:  mov    %r12,0x18(%rsp)
+    0.66 :   9bdcf:  jae    9bea2 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x3e2>
+    0.00 :   9bdd5:  xor    %r12d,%r12d
+         : 231   emit(first + 2 * lanes, base + off2, dist_out, fade_out);
+         : 232   emit(first + 3 * lanes, base + off3, dist_out, fade_out);
+         : 233   v += 4;
+         : 234   }
+         :
+         : 236   while v < n_vecs {
+    0.00 :   9bdd8:  mov    %r12,%rdx
+    0.00 :   9bddb:  sub    %r13,%rdx
+    0.47 :   9bdde:  jae    9c04b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x58b>
+    0.00 :   9bde4:  mov    %r13,%r8
+    0.00 :   9bde7:  and    $0x3,%r8
+    0.00 :   9bdeb:  je     9c041 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x581>
+    0.00 :   9bdf1:  lea    0x0(,%r12,8),%r15
+    0.00 :   9bdf9:  neg    %r8
+    0.00 :   9bdfc:  xor    %ebp,%ebp
+    0.00 :   9bdfe:  vmovaps -0x873e6(%rip),%ymm2        # 14a20 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x580>
+    0.00 :   9be06:  vbroadcastss -0x87a57(%rip),%ymm3        # 143b8 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x58>
+    0.00 :   9be0f:  vbroadcastss -0x87d20(%rip),%ymm5        # 140f8 <anon.3424285db26bc06f5cd21f8c331a1812.12.llvm.17341666223153335309+0x98>
+    0.00 :   9be18:  vbroadcastss -0x87e29(%rip),%ymm12        # 13ff8 <__abi_tag+0x13cc4>
+    0.00 :   9be21:  jmp    9be83 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x3c3>
+    0.00 :   9be23:  data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   9be30:  vcvtsi2ss %r15,%xmm1,%xmm7
+    0.00 :   9be35:  vbroadcastss %xmm7,%ymm4
+    0.00 :   9be3a:  vaddps %ymm2,%ymm4,%ymm4
+    0.00 :   9be3e:  vfmadd213ps %ymm11,%ymm10,%ymm4
+    0.00 :   9be43:  vroundps $0x9,%ymm4,%ymm7
+    0.00 :   9be49:  vsubps %ymm7,%ymm4,%ymm4
+    0.00 :   9be4d:  vmulps %ymm4,%ymm4,%ymm7
+    0.00 :   9be51:  vmulps %ymm7,%ymm4,%ymm7
+    0.00 :   9be55:  vmovaps %ymm5,%ymm13
+    0.00 :   9be59:  vfmadd213ps %ymm3,%ymm4,%ymm13
+    0.00 :   9be5e:  vfmadd213ps %ymm12,%ymm4,%ymm13
+    0.00 :   9be63:  vmulps %ymm7,%ymm13,%ymm7
+    0.00 :   9be67:  vmovups %ymm4,(%r14,%r15,4)
+    0.00 :   9be6d:  vmovups %ymm7,(%r11,%r15,4)
+    0.00 :   9be73:  dec    %rbp
+    0.00 :   9be76:  add    $0x8,%r15
+    0.00 :   9be7a:  cmp    %rbp,%r8
+    0.00 :   9be7d:  je     9c03e <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x57e>
+         : 270   let first = v * lanes;
+         : 271   emit(first, Simd::<f32, A>::splat(first as f32) + iota, dist_out, fade_out);
+    0.00 :   9be83:  test   %r15,%r15
+    0.00 :   9be86:  jns    9be30 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x370>
+    0.00 :   9be88:  mov    %r15,%rcx
+    0.00 :   9be8b:  shr    $1,%rcx
+    0.00 :   9be8e:  mov    %r15d,%esi
+    0.00 :   9be91:  and    $0x1,%esi
+    0.00 :   9be94:  or     %rcx,%rsi
+    0.00 :   9be97:  vcvtsi2ss %rsi,%xmm1,%xmm4
+    0.00 :   9be9c:  vaddss %xmm4,%xmm4,%xmm7
+    0.00 :   9bea0:  jmp    9be35 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x375>
+         : 282   while v + 4 <= n_vecs {
+    0.00 :   9bea2:  lea    0x0(,%r12,8),%rcx
+    0.00 :   9beaa:  lea    (%rcx,%rax,8),%rcx
+    0.00 :   9beae:  lea    (%r9,%rcx,1),%r8
+    0.64 :   9beb2:  add    $0x60,%r8
+    0.00 :   9beb6:  lea    0x0(,%r12,4),%rcx
+    0.00 :   9bebe:  lea    (%rcx,%rax,4),%rcx
+    0.00 :   9bec2:  lea    (%r9,%rcx,1),%rbp
+    0.67 :   9bec6:  add    $0x60,%rbp
+    0.00 :   9beca:  xor    %edx,%edx
+    0.00 :   9becc:  vmovaps -0x874b4(%rip),%ymm12        # 14a20 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x580>
+    0.00 :   9bed4:  vbroadcastss -0x87b25(%rip),%ymm13        # 143b8 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x58>
+    0.61 :   9bedd:  vbroadcastss -0x87dee(%rip),%ymm0        # 140f8 <anon.3424285db26bc06f5cd21f8c331a1812.12.llvm.17341666223153335309+0x98>
+    0.00 :   9bee6:  vbroadcastss -0x87ef7(%rip),%ymm15        # 13ff8 <__abi_tag+0x13cc4>
+    0.00 :   9beef:  vmovaps -0x87797(%rip),%ymm5        # 14760 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x2c0>
+    0.00 :   9bef7:  vmovaps -0x87a9f(%rip),%ymm2        # 14460 <anon.134ffb66ff2152cdf6e460a65bac357d.67.llvm.3916232160293200662+0x10>
+    0.82 :   9beff:  vmovaps -0x879a7(%rip),%ymm3        # 14560 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0xc0>
+    0.00 :   9bf07:  xor    %r15d,%r15d
+    0.70 :   9bf0a:  jmp    9c019 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x559>
+    0.00 :   9bf0f:  nop
+    0.00 :   9bf10:  vcvtsi2ss %rdx,%xmm1,%xmm7
+    1.39 :   9bf15:  vbroadcastss %xmm7,%ymm7
+    0.00 :   9bf1a:  vaddps %ymm7,%ymm12,%ymm4
+    0.00 :   9bf1e:  vfmadd213ps %ymm11,%ymm10,%ymm4
+    1.16 :   9bf23:  vroundps $0x9,%ymm4,%ymm6
+    0.00 :   9bf29:  vsubps %ymm6,%ymm4,%ymm4
+    0.00 :   9bf2d:  vmulps %ymm4,%ymm4,%ymm6
+    0.00 :   9bf31:  vmulps %ymm6,%ymm4,%ymm6
+    1.42 :   9bf35:  vmovaps %ymm0,%ymm14
+    0.00 :   9bf39:  vfmadd213ps %ymm13,%ymm4,%ymm14
+    0.00 :   9bf3e:  vfmadd213ps %ymm15,%ymm4,%ymm14
+    0.00 :   9bf43:  vmulps %ymm6,%ymm14,%ymm6
+    1.37 :   9bf47:  vmovups %ymm4,-0x60(%rbp,%rdx,4)
+    0.00 :   9bf4d:  vmovups %ymm6,-0x60(%r8,%rdx,4)
+    0.01 :   9bf54:  vaddps %ymm5,%ymm7,%ymm4
+    0.00 :   9bf58:  vfmadd213ps %ymm11,%ymm10,%ymm4
+    1.28 :   9bf5d:  vroundps $0x9,%ymm4,%ymm6
+    0.00 :   9bf63:  vsubps %ymm6,%ymm4,%ymm4
+    0.00 :   9bf67:  vmulps %ymm4,%ymm4,%ymm6
+    1.49 :   9bf6b:  vmulps %ymm6,%ymm4,%ymm6
+    0.01 :   9bf6f:  vmovaps %ymm0,%ymm14
+    0.00 :   9bf73:  vfmadd213ps %ymm13,%ymm4,%ymm14
+    0.00 :   9bf78:  vfmadd213ps %ymm15,%ymm4,%ymm14
+    1.25 :   9bf7d:  vmulps %ymm6,%ymm14,%ymm6
+    0.00 :   9bf81:  vmovups %ymm4,-0x40(%rbp,%rdx,4)
+    0.00 :   9bf87:  vmovups %ymm6,-0x40(%r8,%rdx,4)
+    0.00 :   9bf8e:  vaddps %ymm2,%ymm7,%ymm4
+    1.12 :   9bf92:  vfmadd213ps %ymm11,%ymm10,%ymm4
+    0.00 :   9bf97:  vroundps $0x9,%ymm4,%ymm6
+    0.00 :   9bf9d:  vsubps %ymm6,%ymm4,%ymm4
+    1.50 :   9bfa1:  vmulps %ymm4,%ymm4,%ymm6
+    0.00 :   9bfa5:  vmulps %ymm6,%ymm4,%ymm6
+    0.00 :   9bfa9:  vmovaps %ymm0,%ymm14
+    0.00 :   9bfad:  vfmadd213ps %ymm13,%ymm4,%ymm14
+    1.12 :   9bfb2:  vfmadd213ps %ymm15,%ymm4,%ymm14
+    0.01 :   9bfb7:  vmulps %ymm6,%ymm14,%ymm6
+    0.00 :   9bfbb:  vmovups %ymm4,-0x20(%rbp,%rdx,4)
+    0.02 :   9bfc1:  vmovups %ymm6,-0x20(%r8,%rdx,4)
+    1.33 :   9bfc8:  vaddps %ymm3,%ymm7,%ymm4
+    0.00 :   9bfcc:  vfmadd213ps %ymm11,%ymm10,%ymm4
+    0.06 :   9bfd1:  vroundps $0x9,%ymm4,%ymm6
+    1.40 :   9bfd7:  vsubps %ymm6,%ymm4,%ymm4
+    0.00 :   9bfdb:  vmulps %ymm4,%ymm4,%ymm6
+    0.01 :   9bfdf:  vmulps %ymm6,%ymm4,%ymm6
+    0.04 :   9bfe3:  vmovaps %ymm0,%ymm7
+    1.34 :   9bfe7:  vfmadd213ps %ymm13,%ymm4,%ymm7
+    0.00 :   9bfec:  vfmadd213ps %ymm15,%ymm4,%ymm7
+    0.11 :   9bff1:  vmulps %ymm7,%ymm6,%ymm6
+    0.06 :   9bff5:  vmovups %ymm4,0x0(%rbp,%rdx,4)
+    1.15 :   9bffb:  vmovups %ymm6,(%r8,%rdx,4)
+    0.00 :   9c001:  lea    0x4(%r15),%r12
+    0.00 :   9c005:  add    $0x8,%r15
+    0.01 :   9c009:  add    $0x20,%rdx
+    1.13 :   9c00d:  cmp    %r13,%r15
+    0.00 :   9c010:  mov    %r12,%r15
+    0.84 :   9c013:  ja     9bdd8 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x318>
+         : 358   let base = Simd::<f32, A>::splat(first as f32);
+    0.00 :   9c019:  test   %rdx,%rdx
+    1.36 :   9c01c:  jns    9bf10 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x450>
+    0.00 :   9c022:  mov    %rdx,%rcx
+    0.00 :   9c025:  shr    $1,%rcx
+    0.00 :   9c028:  mov    %edx,%esi
+    0.00 :   9c02a:  and    $0x1,%esi
+    0.00 :   9c02d:  or     %rcx,%rsi
+    0.00 :   9c030:  vcvtsi2ss %rsi,%xmm1,%xmm4
+    0.00 :   9c035:  vaddss %xmm4,%xmm4,%xmm7
+    0.00 :   9c039:  jmp    9bf15 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x455>
+         : 369   while v < n_vecs {
+    0.00 :   9c03e:  sub    %rbp,%r12
+    0.00 :   9c041:  cmp    $0xfffffffffffffffc,%rdx
+    0.00 :   9c045:  jbe    9c710 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xc50>
+         : 373   let length = params.grid_size[axis] as i32 as f32;
+    0.00 :   9c04b:  vcvtsi2ssl 0x8(%rsp),%xmm1,%xmm2
+    0.00 :   9c051:  vfmadd132ss 0x50(%rsp),%xmm8,%xmm2
+    0.74 :   9c058:  vroundss $0xa,%xmm2,%xmm2,%xmm2
+    0.00 :   9c05e:  vcvttss2si %xmm2,%rdx
+         : 378   unsafe { full_stride.ceil().to_int_unchecked::<u32>() } as usize - 1;
+    0.61 :   9c063:  mov    %edx,%r13d
+    0.00 :   9c066:  mov    %r13,%rdx
+    0.00 :   9c069:  vbroadcastss -0x87e2a(%rip),%ymm10        # 14248 <anon.e800b9f4c3152f14f16a35cce2272e9a.7.llvm.723185437725812419+0x78>
+    0.00 :   9c072:  dec    %rdx
+    0.40 :   9c075:  je     9c1fd <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x73d>
+    0.14 :   9c07b:  vxorps %xmm3,%xmm3,%xmm3
+    0.00 :   9c07f:  vpermps %ymm9,%ymm10,%ymm3
+    0.00 :   9c084:  vbroadcastss -0x88045(%rip),%ymm2        # 14048 <anon.12c1eae371deae4918d311a40cf5cd4b.21.llvm.14016888582514413234+0x28>
+    0.00 :   9c08d:  vmulps %ymm2,%ymm3,%ymm11
+    0.26 :   9c091:  mov    %rdx,%r8
+    0.00 :   9c094:  shr    $0x3,%r8
+    0.00 :   9c098:  and    $0x7,%edx
+    0.00 :   9c09b:  cmp    $0x1,%rdx
+    0.23 :   9c09f:  sbb    $0xffffffffffffffff,%r8
+    0.00 :   9c0a3:  vmovss -0x880c3(%rip),%xmm2        # 13fe8 <__abi_tag+0x13cb4>
+         : 394   let first_boundary = Simd::splat(scale[axis] * (1.0 - frac));
+    0.00 :   9c0ab:  vsubss %xmm8,%xmm2,%xmm2
+    0.00 :   9c0b0:  vmovshdup %xmm9,%xmm5
+    0.28 :   9c0b5:  vmulss %xmm2,%xmm5,%xmm2
+    0.00 :   9c0b9:  vbroadcastss %xmm2,%ymm2
+    0.00 :   9c0be:  vfmadd231ps -0x876a7(%rip),%ymm3,%ymm2        # 14a20 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x580>
+    0.00 :   9c0c7:  mov    %r8d,%edx
+    0.23 :   9c0ca:  and    $0x7,%edx
+    0.00 :   9c0cd:  cmp    $0x8,%r8
+    0.00 :   9c0d1:  jae    9c0db <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x61b>
+    0.00 :   9c0d3:  xor    %r15d,%r15d
+    0.22 :   9c0d6:  jmp    9c1c3 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x703>
+    0.00 :   9c0db:  movabs $0x3ffffffffffffff8,%r15
+    0.00 :   9c0e5:  and    %r15,%r8
+    0.00 :   9c0e8:  lea    (%r9,%rax,4),%r12
+    0.00 :   9c0ec:  add    $0xe0,%r12
+    0.00 :   9c0f3:  xor    %r15d,%r15d
+    0.00 :   9c0f6:  cs nopw 0x0(%rax,%rax,1)
+    0.00 :   9c100:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9c106:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9c10a:  vmovapd %ymm3,-0xe0(%r12,%r15,4)
+    0.00 :   9c114:  vaddps %ymm2,%ymm11,%ymm2
+    0.00 :   9c118:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9c11e:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9c122:  vmovapd %ymm3,-0xc0(%r12,%r15,4)
+    0.00 :   9c12c:  vaddps %ymm2,%ymm11,%ymm2
+    0.00 :   9c130:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9c136:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9c13a:  vmovapd %ymm3,-0xa0(%r12,%r15,4)
+    0.00 :   9c144:  vaddps %ymm2,%ymm11,%ymm2
+    0.00 :   9c148:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9c14e:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9c152:  vmovapd %ymm3,-0x80(%r12,%r15,4)
+    0.00 :   9c159:  vaddps %ymm2,%ymm11,%ymm2
+    0.00 :   9c15d:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9c163:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9c167:  vmovapd %ymm3,-0x60(%r12,%r15,4)
+    0.00 :   9c16e:  vaddps %ymm2,%ymm11,%ymm2
+    0.00 :   9c172:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9c178:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9c17c:  vmovapd %ymm3,-0x40(%r12,%r15,4)
+    0.00 :   9c183:  vaddps %ymm2,%ymm11,%ymm2
+    0.00 :   9c187:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9c18d:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9c191:  vmovapd %ymm3,-0x20(%r12,%r15,4)
+    0.00 :   9c198:  vaddps %ymm2,%ymm11,%ymm2
+    0.00 :   9c19c:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9c1a2:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9c1a6:  vmovapd %ymm3,(%r12,%r15,4)
+    0.00 :   9c1ac:  add    $0x40,%r15
+    0.00 :   9c1b0:  vaddps %ymm2,%ymm11,%ymm2
+    0.00 :   9c1b4:  add    $0xfffffffffffffff8,%r8
+    0.00 :   9c1b8:  jne    9c100 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x640>
+    0.00 :   9c1be:  test   %rdx,%rdx
+    0.00 :   9c1c1:  je     9c1fd <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x73d>
+    0.00 :   9c1c3:  lea    0x0(,%rax,4),%r8
+    0.00 :   9c1cb:  lea    (%r8,%r15,4),%r8
+    0.00 :   9c1cf:  add    %r9,%r8
+    0.26 :   9c1d2:  shl    $0x5,%edx
+    0.00 :   9c1d5:  xor    %r15d,%r15d
+    0.00 :   9c1d8:  nopl   0x0(%rax,%rax,1)
+    0.20 :   9c1e0:  vroundps $0xa,%ymm2,%ymm3
+    0.00 :   9c1e6:  vcvtps2dq %ymm3,%ymm3
+    0.00 :   9c1ea:  vmovapd %ymm3,(%r8,%r15,1)
+    0.00 :   9c1f0:  vaddps %ymm2,%ymm11,%ymm2
+    0.18 :   9c1f4:  add    $0x20,%r15
+    0.00 :   9c1f8:  cmp    %r15,%rdx
+    0.00 :   9c1fb:  jne    9c1e0 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x720>
+         : 462   *grid_indices[axis]
+    0.00 :   9c1fd:  lea    (%r9,%rax,4),%rcx
+    0.00 :   9c201:  mov    0x8(%rsp),%rsi
+    0.21 :   9c206:  mov    %r13,0x20(%rsp)
+    0.49 :   9c20b:  mov    %esi,-0x4(%rcx,%r13,4)
+    0.00 :   9c210:  vxorps %xmm9,%xmm9,%xmm9
+    0.00 :   9c215:  vpermps %ymm1,%ymm10,%ymm9
+    0.17 :   9c21a:  vbroadcastss %xmm8,%ymm8
+    0.48 :   9c21f:  mov    %rsi,%rdx
+    0.00 :   9c222:  shr    $0x3,%rdx
+    0.00 :   9c226:  xor    %ebp,%ebp
+    0.15 :   9c228:  test   $0x7,%sil
+    0.36 :   9c22c:  setne  %bpl
+    0.00 :   9c230:  add    %rdx,%rbp
+         : 476   while v + 4 <= n_vecs {
+    0.00 :   9c233:  cmp    $0x4,%rbp
+    0.59 :   9c237:  jae    9c302 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x842>
+    0.00 :   9c23d:  xor    %edx,%edx
+         : 480   while v < n_vecs {
+    0.00 :   9c23f:  mov    %rdx,%r15
+    0.00 :   9c242:  sub    %rbp,%r15
+    0.00 :   9c245:  mov    0x10(%rsp),%r12
+    0.63 :   9c24a:  jae    9c4d3 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xa13>
+    0.00 :   9c250:  mov    %rbp,%r8
+    0.00 :   9c253:  and    $0x3,%r8
+    0.00 :   9c257:  je     9c4c9 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xa09>
+    0.00 :   9c25d:  lea    0x0(,%rdx,8),%rcx
+    0.00 :   9c265:  neg    %r8
+    0.00 :   9c268:  xor    %r13d,%r13d
+    0.00 :   9c26b:  vmovaps -0x87853(%rip),%ymm2        # 14a20 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x580>
+    0.00 :   9c273:  vbroadcastss -0x87ec4(%rip),%ymm3        # 143b8 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x58>
+    0.00 :   9c27c:  vbroadcastss -0x8818d(%rip),%ymm5        # 140f8 <anon.3424285db26bc06f5cd21f8c331a1812.12.llvm.17341666223153335309+0x98>
+    0.00 :   9c285:  vbroadcastss -0x88296(%rip),%ymm10        # 13ff8 <__abi_tag+0x13cc4>
+    0.00 :   9c28e:  jmp    9c2e2 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x822>
+    0.00 :   9c290:  vcvtsi2ss %rcx,%xmm1,%xmm7
+    0.00 :   9c295:  vbroadcastss %xmm7,%ymm4
+    0.00 :   9c29a:  vaddps %ymm2,%ymm4,%ymm4
+    0.00 :   9c29e:  vfmadd213ps %ymm8,%ymm9,%ymm4
+    0.00 :   9c2a3:  vroundps $0x9,%ymm4,%ymm7
+    0.00 :   9c2a9:  vsubps %ymm7,%ymm4,%ymm4
+    0.00 :   9c2ad:  vmulps %ymm4,%ymm4,%ymm7
+    0.00 :   9c2b1:  vmulps %ymm7,%ymm4,%ymm7
+    0.00 :   9c2b5:  vmovaps %ymm5,%ymm11
+    0.00 :   9c2b9:  vfmadd213ps %ymm3,%ymm4,%ymm11
+    0.00 :   9c2be:  vfmadd213ps %ymm10,%ymm4,%ymm11
+    0.00 :   9c2c3:  vmulps %ymm7,%ymm11,%ymm7
+    0.00 :   9c2c7:  vmovups %ymm4,(%rbx,%rcx,4)
+    0.00 :   9c2cc:  vmovups %ymm7,(%r10,%rcx,4)
+    0.00 :   9c2d2:  dec    %r13
+    0.00 :   9c2d5:  add    $0x8,%rcx
+    0.00 :   9c2d9:  cmp    %r13,%r8
+    0.00 :   9c2dc:  je     9c4c1 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xa01>
+         : 514   emit(first, Simd::<f32, A>::splat(first as f32) + iota, dist_out, fade_out);
+    0.00 :   9c2e2:  test   %rcx,%rcx
+    0.00 :   9c2e5:  jns    9c290 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x7d0>
+    0.00 :   9c2e7:  mov    %rcx,%rsi
+    0.00 :   9c2ea:  shr    $1,%rsi
+    0.00 :   9c2ed:  mov    %ecx,%r12d
+    0.00 :   9c2f0:  and    $0x1,%r12d
+    0.00 :   9c2f4:  or     %rsi,%r12
+    0.00 :   9c2f7:  vcvtsi2ss %r12,%xmm1,%xmm4
+    0.00 :   9c2fc:  vaddss %xmm4,%xmm4,%xmm7
+    0.00 :   9c300:  jmp    9c295 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x7d5>
+         : 525   while v + 4 <= n_vecs {
+    0.00 :   9c302:  lea    (%rax,%rax,2),%rdx
+    0.00 :   9c306:  mov    0x18(%rsp),%rcx
+    0.00 :   9c30b:  lea    0x0(,%rcx,8),%r8
+    0.76 :   9c313:  lea    (%r8,%rdx,4),%rdx
+    0.00 :   9c317:  lea    (%r9,%rdx,1),%r8
+    0.00 :   9c31b:  add    $0x60,%r8
+    0.00 :   9c31f:  lea    0x0(,%rcx,4),%rdx
+    0.71 :   9c327:  lea    (%rdx,%rax,8),%rdx
+    0.00 :   9c32b:  lea    (%r9,%rdx,1),%rcx
+    0.00 :   9c32f:  add    $0x60,%rcx
+    0.00 :   9c333:  xor    %r15d,%r15d
+    0.69 :   9c336:  vmovaps -0x8791e(%rip),%ymm10        # 14a20 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x580>
+    0.00 :   9c33e:  vbroadcastss -0x87f8f(%rip),%ymm11        # 143b8 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x58>
+    0.00 :   9c347:  vbroadcastss -0x88258(%rip),%ymm4        # 140f8 <anon.3424285db26bc06f5cd21f8c331a1812.12.llvm.17341666223153335309+0x98>
+    0.00 :   9c350:  vbroadcastss -0x88361(%rip),%ymm13        # 13ff8 <__abi_tag+0x13cc4>
+    0.62 :   9c359:  vmovaps -0x87c01(%rip),%ymm2        # 14760 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x2c0>
+    0.00 :   9c361:  vmovaps -0x87f09(%rip),%ymm3        # 14460 <anon.134ffb66ff2152cdf6e460a65bac357d.67.llvm.3916232160293200662+0x10>
+    0.00 :   9c369:  vmovaps -0x87e11(%rip),%ymm5        # 14560 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0xc0>
+    0.00 :   9c371:  xor    %r13d,%r13d
+    0.86 :   9c374:  jmp    9c49a <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x9da>
+    0.00 :   9c379:  nopl   0x0(%rax)
+    0.00 :   9c380:  vcvtsi2ss %r15,%xmm1,%xmm7
+    1.33 :   9c385:  vbroadcastss %xmm7,%ymm7
+    0.00 :   9c38a:  vaddps %ymm7,%ymm10,%ymm14
+    0.00 :   9c38e:  vfmadd213ps %ymm8,%ymm9,%ymm14
+    1.39 :   9c393:  vroundps $0x9,%ymm14,%ymm15
+    0.00 :   9c399:  vsubps %ymm15,%ymm14,%ymm14
+    0.00 :   9c39e:  vmulps %ymm14,%ymm14,%ymm15
+    0.00 :   9c3a3:  vmulps %ymm15,%ymm14,%ymm15
+    1.13 :   9c3a8:  vmovaps %ymm4,%ymm12
+    0.00 :   9c3ac:  vfmadd213ps %ymm11,%ymm14,%ymm12
+    0.00 :   9c3b1:  vfmadd213ps %ymm13,%ymm14,%ymm12
+    0.01 :   9c3b6:  vmulps %ymm12,%ymm15,%ymm12
+    1.40 :   9c3bb:  vmovups %ymm14,-0x60(%rcx,%r15,4)
+    0.00 :   9c3c2:  vmovups %ymm12,-0x60(%r8,%r15,4)
+    0.00 :   9c3c9:  vaddps %ymm2,%ymm7,%ymm12
+    0.00 :   9c3cd:  vfmadd213ps %ymm8,%ymm9,%ymm12
+    1.06 :   9c3d2:  vroundps $0x9,%ymm12,%ymm14
+    0.01 :   9c3d8:  vsubps %ymm14,%ymm12,%ymm12
+    0.01 :   9c3dd:  vmulps %ymm12,%ymm12,%ymm14
+    1.26 :   9c3e2:  vmulps %ymm14,%ymm12,%ymm14
+    0.01 :   9c3e7:  vmovaps %ymm4,%ymm15
+    0.00 :   9c3eb:  vfmadd213ps %ymm11,%ymm12,%ymm15
+    0.00 :   9c3f0:  vfmadd213ps %ymm13,%ymm12,%ymm15
+    1.32 :   9c3f5:  vmulps %ymm15,%ymm14,%ymm14
+    0.00 :   9c3fa:  vmovups %ymm12,-0x40(%rcx,%r15,4)
+    0.00 :   9c401:  vmovups %ymm14,-0x40(%r8,%r15,4)
+    0.00 :   9c408:  vaddps %ymm3,%ymm7,%ymm12
+    1.30 :   9c40c:  vfmadd213ps %ymm8,%ymm9,%ymm12
+    0.01 :   9c411:  vroundps $0x9,%ymm12,%ymm14
+    0.00 :   9c417:  vsubps %ymm14,%ymm12,%ymm12
+    1.37 :   9c41c:  vmulps %ymm12,%ymm12,%ymm14
+    0.00 :   9c421:  vmulps %ymm14,%ymm12,%ymm14
+    0.00 :   9c426:  vmovaps %ymm4,%ymm15
+    0.00 :   9c42a:  vfmadd213ps %ymm11,%ymm12,%ymm15
+    1.49 :   9c42f:  vfmadd213ps %ymm13,%ymm12,%ymm15
+    0.00 :   9c434:  vmulps %ymm15,%ymm14,%ymm14
+    0.00 :   9c439:  vmovups %ymm12,-0x20(%rcx,%r15,4)
+    0.00 :   9c440:  vmovups %ymm14,-0x20(%r8,%r15,4)
+    1.30 :   9c447:  vaddps %ymm5,%ymm7,%ymm7
+    0.00 :   9c44b:  vfmadd213ps %ymm8,%ymm9,%ymm7
+    0.00 :   9c450:  vroundps $0x9,%ymm7,%ymm12
+    1.23 :   9c456:  vsubps %ymm12,%ymm7,%ymm7
+    0.00 :   9c45b:  vmulps %ymm7,%ymm7,%ymm12
+    0.00 :   9c45f:  vmulps %ymm7,%ymm12,%ymm12
+    0.00 :   9c463:  vmovaps %ymm4,%ymm14
+    1.12 :   9c467:  vfmadd213ps %ymm11,%ymm7,%ymm14
+    0.01 :   9c46c:  vfmadd213ps %ymm13,%ymm7,%ymm14
+    0.02 :   9c471:  vmulps %ymm14,%ymm12,%ymm12
+    0.01 :   9c476:  vmovups %ymm7,(%rcx,%r15,4)
+    1.34 :   9c47c:  vmovups %ymm12,(%r8,%r15,4)
+    0.01 :   9c482:  lea    0x4(%r13),%rdx
+    0.00 :   9c486:  add    $0x8,%r13
+    0.00 :   9c48a:  add    $0x20,%r15
+    1.28 :   9c48e:  cmp    %rbp,%r13
+    0.00 :   9c491:  mov    %rdx,%r13
+    0.74 :   9c494:  ja     9c23f <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x77f>
+         : 603   let base = Simd::<f32, A>::splat(first as f32);
+    0.00 :   9c49a:  test   %r15,%r15
+    1.24 :   9c49d:  jns    9c380 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x8c0>
+    0.00 :   9c4a3:  mov    %r15,%rdx
+    0.00 :   9c4a6:  shr    $1,%rdx
+    0.00 :   9c4a9:  mov    %r15d,%r12d
+    0.00 :   9c4ac:  and    $0x1,%r12d
+    0.00 :   9c4b0:  or     %rdx,%r12
+    0.00 :   9c4b3:  vcvtsi2ss %r12,%xmm1,%xmm7
+    0.00 :   9c4b8:  vaddss %xmm7,%xmm7,%xmm7
+    0.00 :   9c4bc:  jmp    9c385 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x8c5>
+         : 614   while v < n_vecs {
+    0.00 :   9c4c1:  sub    %r13,%rdx
+    0.00 :   9c4c4:  mov    0x10(%rsp),%r12
+    0.00 :   9c4c9:  cmp    $0xfffffffffffffffc,%r15
+    0.00 :   9c4cd:  jbe    9c90a <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xe4a>
+    0.00 :   9c4d3:  xor    %r8d,%r8d
+         : 620   }
+         :
+         : 622   #[inline(always)]
+         : 623   pub(crate) fn configure_tiling<const D: usize>(params: &GridNoiseParams<D>) -> [Option<u32>; D] {
+         : 624   std::array::from_fn(|i| {
+         : 625   if let Some(val) = params.tiling[i] {
+    0.00 :   9c4d6:  cmpl   $0x1,(%r12)
+    0.00 :   9c4db:  mov    $0x0,%ebp
+    0.80 :   9c4e0:  vmovaps 0xb0(%rsp),%xmm0
+    0.00 :   9c4e9:  vmovapd 0xa0(%rsp),%xmm5
+    0.00 :   9c4f2:  vmovsd 0x48(%rsp),%xmm6
+    0.00 :   9c4f8:  vmovaps 0x90(%rsp),%xmm7
+    0.81 :   9c501:  jne    9c58c <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xacc>
+    0.00 :   9c507:  mov    0x4(%r12),%ecx
+         : 634   let float = val as f32 * params.frequency[i];
+    0.00 :   9c50c:  vcvtsi2ss %rcx,%xmm1,%xmm2
+         : 636   if let Some(val) = params.tiling[i] {
+    0.00 :   9c511:  mov    %ecx,(%rsp)
+         : 638   let float = val as f32 * params.frequency[i];
+    0.00 :   9c514:  vmulss %xmm2,%xmm7,%xmm3
+    0.00 :   9c518:  vbroadcastss -0x88359(%rip),%xmm2        # 141c8 <anon.2b1269f85b413a9ad22d5fe08121dd49.11.llvm.1307999029548583669+0xc8>
+    0.00 :   9c521:  vandps %xmm2,%xmm3,%xmm2
+    0.00 :   9c525:  vbroadcastss -0x88446(%rip),%xmm4        # 140e8 <anon.3424285db26bc06f5cd21f8c331a1812.12.llvm.17341666223153335309+0x88>
+    0.00 :   9c52e:  vorps  %xmm4,%xmm2,%xmm2
+    0.00 :   9c532:  vaddss %xmm2,%xmm3,%xmm2
+    0.00 :   9c536:  vroundss $0xb,%xmm2,%xmm2,%xmm2
+         : 646   let nearness = (float - float.round()).abs();
+    0.00 :   9c53c:  vsubss %xmm2,%xmm3,%xmm3
+    0.00 :   9c540:  vbroadcastss -0x881b1(%rip),%xmm4        # 14398 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x38>
+    0.00 :   9c549:  vandps %xmm4,%xmm3,%xmm3
+    0.00 :   9c54d:  vmovss %xmm3,0x4(%rsp)
+    0.00 :   9c553:  xor    %edx,%edx
+    0.00 :   9c555:  vmovss -0x88155(%rip),%xmm4        # 14408 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0xa8>
+         : 653   assert!(
+         : 654   nearness < 0.001,
+    0.00 :   9c55d:  vucomiss %xmm3,%xmm4
+    0.00 :   9c561:  jbe    9cb3b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x107b>
+         : 657   "frequency does not align with the tiling of {val} (frequency={}, nearness={nearness})!",
+         : 658   params.frequency[i]
+         : 659   );
+         : 660   Some(float.round() as u32)
+    0.00 :   9c567:  vcvttss2si %xmm2,%rcx
+    0.00 :   9c56c:  vxorps %xmm3,%xmm3,%xmm3
+    0.00 :   9c570:  vucomiss %xmm3,%xmm2
+    0.00 :   9c574:  cmovb  %edx,%ecx
+    0.00 :   9c577:  vucomiss -0x881cf(%rip),%xmm2        # 143b0 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x50>
+    0.00 :   9c57f:  mov    $0xffffffff,%edx
+    0.00 :   9c584:  cmovbe %ecx,%edx
+    0.00 :   9c587:  mov    $0x1,%ebp
+         : 669   if let Some(val) = params.tiling[i] {
+    0.00 :   9c58c:  cmpl   $0x1,0x8(%r12)
+    0.65 :   9c592:  jne    9c624 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xb64>
+    0.00 :   9c598:  mov    0xc(%r12),%ecx
+         : 673   let float = val as f32 * params.frequency[i];
+    0.00 :   9c59d:  vcvtsi2ss %rcx,%xmm1,%xmm2
+         : 675   if let Some(val) = params.tiling[i] {
+    0.00 :   9c5a2:  mov    %ecx,(%rsp)
+         : 677   let float = val as f32 * params.frequency[i];
+    0.00 :   9c5a5:  vmovshdup %xmm7,%xmm3
+    0.00 :   9c5a9:  vmulss %xmm2,%xmm3,%xmm3
+    0.00 :   9c5ad:  vbroadcastss -0x883ee(%rip),%xmm2        # 141c8 <anon.2b1269f85b413a9ad22d5fe08121dd49.11.llvm.1307999029548583669+0xc8>
+    0.00 :   9c5b6:  vandps %xmm2,%xmm3,%xmm2
+    0.00 :   9c5ba:  vbroadcastss -0x884db(%rip),%xmm4        # 140e8 <anon.3424285db26bc06f5cd21f8c331a1812.12.llvm.17341666223153335309+0x88>
+    0.00 :   9c5c3:  vorps  %xmm4,%xmm2,%xmm2
+    0.00 :   9c5c7:  vaddss %xmm2,%xmm3,%xmm2
+    0.00 :   9c5cb:  vroundss $0xb,%xmm2,%xmm2,%xmm2
+         : 686   let nearness = (float - float.round()).abs();
+    0.00 :   9c5d1:  vsubss %xmm2,%xmm3,%xmm3
+    0.00 :   9c5d5:  vbroadcastss -0x88246(%rip),%xmm4        # 14398 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x38>
+    0.00 :   9c5de:  vandps %xmm4,%xmm3,%xmm3
+    0.00 :   9c5e2:  vmovss %xmm3,0x4(%rsp)
+    0.00 :   9c5e8:  vmovss -0x881e8(%rip),%xmm4        # 14408 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0xa8>
+         : 692   nearness < 0.001,
+    0.00 :   9c5f0:  vucomiss %xmm3,%xmm4
+    0.00 :   9c5f4:  jbe    9cb36 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x1076>
+         : 695   Some(float.round() as u32)
+    0.00 :   9c5fa:  vcvttss2si %xmm2,%rcx
+    0.00 :   9c5ff:  xor    %esi,%esi
+    0.00 :   9c601:  vxorps %xmm3,%xmm3,%xmm3
+    0.00 :   9c605:  vucomiss %xmm3,%xmm2
+    0.00 :   9c609:  cmovae %ecx,%esi
+    0.00 :   9c60c:  vucomiss -0x88264(%rip),%xmm2        # 143b0 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x50>
+    0.00 :   9c614:  mov    $0xffffffff,%r15d
+    0.00 :   9c61a:  cmovbe %esi,%r15d
+    0.00 :   9c61e:  mov    $0x1,%r8d
+    0.00 :   9c624:  vcvttsd2si %xmm5,%ecx
+    0.00 :   9c628:  vmovsd -0x86ef8(%rip),%xmm2        # 15738 <anon.027c59ad07e785e8702d80afede58061.15.llvm.16231916899884949472+0x38>
+    0.65 :   9c630:  vmovsd 0x40(%rsp),%xmm3
+         : 708   if *frac >= 1.0 {
+    0.00 :   9c636:  vucomisd %xmm2,%xmm3
+    0.00 :   9c63a:  sbb    $0xffffffff,%ecx
+    0.00 :   9c63d:  vucomisd %xmm2,%xmm6
+    0.64 :   9c641:  vcvttsd2si %xmm0,%esi
+    0.00 :   9c645:  sbb    $0xffffffff,%esi
+    0.00 :   9c648:  mov    0x8(%rsp),%r13
+    0.62 :   9c64d:  imul   0x30(%rsp),%r13
+         : 716   // Adjust the tiling.
+         : 717   let octave_tiling = configure_tiling(params);
+         :
+         : 719   Self {
+         : 720   total_size,
+         : 721   weight: params.weight,
+    0.00 :   9c653:  vmovss 0x3c(%r12),%xmm2
+    0.00 :   9c65a:  add    $0x10,%r12
+         : 724   grid_size: params.grid_size,
+    0.00 :   9c65e:  vmovups (%r12),%xmm3
+         : 726   Self {
+    0.79 :   9c664:  shl    $0x20,%rcx
+    0.00 :   9c668:  or     %rcx,%rsi
+         : 729   grid_size: params.grid_size,
+    0.00 :   9c66b:  vmovups %xmm3,0x78(%rdi)
+         : 731   Self {
+    0.00 :   9c670:  mov    %r13,0x70(%rdi)
+    0.74 :   9c674:  vmovss %xmm2,0xa8(%rdi)
+    0.00 :   9c67c:  mov    %rsi,0x88(%rdi)
+    0.00 :   9c683:  vmovss %xmm1,0x90(%rdi)
+    0.00 :   9c68b:  vmovaps 0x50(%rsp),%xmm0
+    0.54 :   9c691:  vmovss %xmm0,0x94(%rdi)
+    0.00 :   9c699:  mov    0x28(%rsp),%rcx
+    0.00 :   9c69e:  mov    %rcx,0x98(%rdi)
+    0.00 :   9c6a5:  mov    0x20(%rsp),%rcx
+    0.68 :   9c6aa:  mov    %rcx,0xa0(%rdi)
+    0.01 :   9c6b1:  mov    %ebp,(%rdi)
+    0.00 :   9c6b3:  mov    %edx,0x4(%rdi)
+    0.00 :   9c6b6:  mov    %r8d,0x8(%rdi)
+    0.81 :   9c6ba:  mov    %r15d,0xc(%rdi)
+    0.00 :   9c6be:  mov    %r14,0x10(%rdi)
+    0.00 :   9c6c2:  mov    %rax,0x18(%rdi)
+    0.00 :   9c6c6:  mov    %rbx,0x20(%rdi)
+    0.79 :   9c6ca:  mov    0x18(%rsp),%rcx
+    0.00 :   9c6cf:  mov    %rcx,0x28(%rdi)
+    0.00 :   9c6d3:  mov    %r11,0x30(%rdi)
+    0.00 :   9c6d7:  mov    %rax,0x38(%rdi)
+    0.55 :   9c6db:  mov    %r10,0x40(%rdi)
+    0.00 :   9c6df:  mov    %rcx,0x48(%rdi)
+    0.00 :   9c6e3:  mov    %r9,0x50(%rdi)
+    0.00 :   9c6e7:  mov    %rax,0x58(%rdi)
+    0.64 :   9c6eb:  mov    0x38(%rsp),%rax
+    0.00 :   9c6f0:  mov    %rax,0x60(%rdi)
+    0.00 :   9c6f4:  mov    %rcx,0x68(%rdi)
+         : 760   octave_tiling,
+         : 761   distances,
+         : 762   fade_factors,
+         : 763   grid_indices,
+         : 764   }
+         : 765   }
+    0.00 :   9c6f8:  mov    %rdi,%rax
+    0.77 :   9c6fb:  add    $0xc8,%rsp
+    0.00 :   9c702:  pop    %rbx
+    0.00 :   9c703:  pop    %r12
+    0.00 :   9c705:  pop    %r13
+    0.51 :   9c707:  pop    %r14
+    0.00 :   9c709:  pop    %r15
+    0.00 :   9c70b:  pop    %rbp
+    0.82 :   9c70c:  vzeroupper
+    0.71 :   9c70f:  ret
+         : 776   while v < n_vecs {
+    0.00 :   9c710:  lea    0x18(,%r12,8),%rbp
+    0.00 :   9c718:  sub    %r12,%r13
+    0.00 :   9c71b:  vmovaps -0x87d03(%rip),%ymm12        # 14a20 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x580>
+    0.00 :   9c723:  vbroadcastss -0x88374(%rip),%ymm13        # 143b8 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x58>
+    0.00 :   9c72c:  vbroadcastss -0x8863d(%rip),%ymm14        # 140f8 <anon.3424285db26bc06f5cd21f8c331a1812.12.llvm.17341666223153335309+0x98>
+    0.00 :   9c735:  vbroadcastss -0x88746(%rip),%ymm15        # 13ff8 <__abi_tag+0x13cc4>
+    0.00 :   9c73e:  jmp    9c791 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xcd1>
+    0.00 :   9c740:  vcvtsi2ss %rbp,%xmm8,%xmm2
+    0.00 :   9c745:  vbroadcastss %xmm2,%ymm0
+    0.00 :   9c74a:  vaddps %ymm0,%ymm12,%ymm0
+    0.00 :   9c74e:  vfmadd213ps %ymm11,%ymm10,%ymm0
+    0.00 :   9c753:  vroundps $0x9,%ymm0,%ymm2
+    0.00 :   9c759:  vsubps %ymm2,%ymm0,%ymm0
+    0.00 :   9c75d:  vmulps %ymm0,%ymm0,%ymm2
+    0.00 :   9c761:  vmulps %ymm2,%ymm0,%ymm2
+    0.00 :   9c765:  vmovaps %ymm14,%ymm3
+    0.00 :   9c769:  vfmadd213ps %ymm13,%ymm0,%ymm3
+    0.00 :   9c76e:  vfmadd213ps %ymm15,%ymm0,%ymm3
+    0.00 :   9c773:  vmulps %ymm3,%ymm2,%ymm2
+    0.00 :   9c777:  vmovups %ymm0,(%r14,%rbp,4)
+    0.00 :   9c77d:  vmovups %ymm2,(%r11,%rbp,4)
+    0.00 :   9c783:  add    $0x20,%rbp
+    0.00 :   9c787:  add    $0xfffffffffffffffc,%r13
+    0.00 :   9c78b:  je     9c04b <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0x58b>
+         : 801   emit(first, Simd::<f32, A>::splat(first as f32) + iota, dist_out, fade_out);
+    0.00 :   9c791:  mov    %rbp,%rdx
+    0.00 :   9c794:  add    $0xffffffffffffffe8,%rdx
+    0.00 :   9c798:  js     9c7b0 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xcf0>
+    0.00 :   9c79a:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9c79f:  jmp    9c7c5 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xd05>
+    0.00 :   9c7a1:  data16 data16 data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   9c7b0:  mov    %rdx,%rcx
+    0.00 :   9c7b3:  shr    $1,%rcx
+    0.00 :   9c7b6:  and    $0x1,%edx
+    0.00 :   9c7b9:  or     %rcx,%rdx
+    0.00 :   9c7bc:  vcvtsi2ss %rdx,%xmm1,%xmm0
+    0.00 :   9c7c1:  vaddss %xmm0,%xmm0,%xmm2
+    0.00 :   9c7c5:  vbroadcastss %xmm2,%ymm0
+    0.00 :   9c7ca:  vaddps %ymm0,%ymm12,%ymm0
+    0.00 :   9c7ce:  vfmadd213ps %ymm11,%ymm10,%ymm0
+    0.00 :   9c7d3:  vroundps $0x9,%ymm0,%ymm2
+    0.00 :   9c7d9:  vsubps %ymm2,%ymm0,%ymm0
+    0.00 :   9c7dd:  vmulps %ymm0,%ymm0,%ymm2
+    0.00 :   9c7e1:  vmulps %ymm2,%ymm0,%ymm2
+    0.00 :   9c7e5:  vmovaps %ymm14,%ymm3
+    0.00 :   9c7e9:  vfmadd213ps %ymm13,%ymm0,%ymm3
+    0.00 :   9c7ee:  vfmadd213ps %ymm15,%ymm0,%ymm3
+    0.00 :   9c7f3:  vmulps %ymm3,%ymm2,%ymm2
+    0.00 :   9c7f7:  vmovups %ymm0,-0x60(%r14,%rbp,4)
+    0.00 :   9c7fe:  vmovups %ymm2,-0x60(%r11,%rbp,4)
+    0.00 :   9c805:  mov    %rbp,%rdx
+    0.00 :   9c808:  add    $0xfffffffffffffff0,%rdx
+    0.00 :   9c80c:  js     9c820 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xd60>
+    0.00 :   9c80e:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9c813:  jmp    9c835 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xd75>
+    0.00 :   9c815:  data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   9c820:  mov    %rdx,%rcx
+    0.00 :   9c823:  shr    $1,%rcx
+    0.00 :   9c826:  and    $0x1,%edx
+    0.00 :   9c829:  or     %rcx,%rdx
+    0.00 :   9c82c:  vcvtsi2ss %rdx,%xmm1,%xmm0
+    0.00 :   9c831:  vaddss %xmm0,%xmm0,%xmm2
+    0.00 :   9c835:  vbroadcastss %xmm2,%ymm0
+    0.00 :   9c83a:  vaddps %ymm0,%ymm12,%ymm0
+    0.00 :   9c83e:  vfmadd213ps %ymm11,%ymm10,%ymm0
+    0.00 :   9c843:  vroundps $0x9,%ymm0,%ymm2
+    0.00 :   9c849:  vsubps %ymm2,%ymm0,%ymm0
+    0.00 :   9c84d:  vmulps %ymm0,%ymm0,%ymm2
+    0.00 :   9c851:  vmulps %ymm2,%ymm0,%ymm2
+    0.00 :   9c855:  vmovaps %ymm14,%ymm3
+    0.00 :   9c859:  vfmadd213ps %ymm13,%ymm0,%ymm3
+    0.00 :   9c85e:  vfmadd213ps %ymm15,%ymm0,%ymm3
+    0.00 :   9c863:  vmulps %ymm3,%ymm2,%ymm2
+    0.00 :   9c867:  vmovups %ymm0,-0x40(%r14,%rbp,4)
+    0.00 :   9c86e:  vmovups %ymm2,-0x40(%r11,%rbp,4)
+    0.00 :   9c875:  mov    %rbp,%rdx
+    0.00 :   9c878:  add    $0xfffffffffffffff8,%rdx
+    0.00 :   9c87c:  js     9c890 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xdd0>
+    0.00 :   9c87e:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9c883:  jmp    9c8a5 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xde5>
+    0.00 :   9c885:  data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   9c890:  mov    %rdx,%rcx
+    0.00 :   9c893:  shr    $1,%rcx
+    0.00 :   9c896:  and    $0x1,%edx
+    0.00 :   9c899:  or     %rcx,%rdx
+    0.00 :   9c89c:  vcvtsi2ss %rdx,%xmm1,%xmm0
+    0.00 :   9c8a1:  vaddss %xmm0,%xmm0,%xmm2
+    0.00 :   9c8a5:  vbroadcastss %xmm2,%ymm0
+    0.00 :   9c8aa:  vaddps %ymm0,%ymm12,%ymm0
+    0.00 :   9c8ae:  vfmadd213ps %ymm11,%ymm10,%ymm0
+    0.00 :   9c8b3:  vroundps $0x9,%ymm0,%ymm2
+    0.00 :   9c8b9:  vsubps %ymm2,%ymm0,%ymm0
+    0.00 :   9c8bd:  vmulps %ymm0,%ymm0,%ymm2
+    0.00 :   9c8c1:  vmulps %ymm2,%ymm0,%ymm2
+    0.00 :   9c8c5:  vmovaps %ymm14,%ymm3
+    0.00 :   9c8c9:  vfmadd213ps %ymm13,%ymm0,%ymm3
+    0.00 :   9c8ce:  vfmadd213ps %ymm15,%ymm0,%ymm3
+    0.00 :   9c8d3:  vmulps %ymm3,%ymm2,%ymm2
+    0.00 :   9c8d7:  vmovups %ymm0,-0x20(%r14,%rbp,4)
+    0.00 :   9c8de:  vmovups %ymm2,-0x20(%r11,%rbp,4)
+    0.00 :   9c8e5:  test   %rbp,%rbp
+    0.00 :   9c8e8:  jns    9c740 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xc80>
+    0.00 :   9c8ee:  mov    %rbp,%rcx
+    0.00 :   9c8f1:  shr    $1,%rcx
+    0.00 :   9c8f4:  mov    %ebp,%edx
+    0.00 :   9c8f6:  and    $0x1,%edx
+    0.00 :   9c8f9:  or     %rcx,%rdx
+    0.00 :   9c8fc:  vcvtsi2ss %rdx,%xmm8,%xmm0
+    0.00 :   9c901:  vaddss %xmm0,%xmm0,%xmm2
+    0.00 :   9c905:  jmp    9c745 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xc85>
+         : 887   while v < n_vecs {
+    0.00 :   9c90a:  lea    0x18(,%rdx,8),%r8
+    0.00 :   9c912:  sub    %rdx,%rbp
+    0.00 :   9c915:  vmovaps -0x87efd(%rip),%ymm10        # 14a20 <anon.2f73401f288e5f677f14a0a4e73bf9a3.25.llvm.10022687611343054285+0x580>
+    0.00 :   9c91d:  vbroadcastss -0x8856e(%rip),%ymm11        # 143b8 <anon.f8babf4cc3e7187a9b46125f3a78e31d.3.llvm.10885443695673054411+0x58>
+    0.00 :   9c926:  vbroadcastss -0x88837(%rip),%ymm12        # 140f8 <anon.3424285db26bc06f5cd21f8c331a1812.12.llvm.17341666223153335309+0x98>
+    0.00 :   9c92f:  vbroadcastss -0x88940(%rip),%ymm13        # 13ff8 <__abi_tag+0x13cc4>
+    0.00 :   9c938:  jmp    9c991 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xed1>
+    0.00 :   9c93a:  nopw   0x0(%rax,%rax,1)
+    0.00 :   9c940:  vcvtsi2ss %r8,%xmm1,%xmm2
+    0.00 :   9c945:  vbroadcastss %xmm2,%ymm2
+    0.00 :   9c94a:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9c94e:  vfmadd213ps %ymm8,%ymm9,%ymm2
+    0.00 :   9c953:  vroundps $0x9,%ymm2,%ymm3
+    0.00 :   9c959:  vsubps %ymm3,%ymm2,%ymm2
+    0.00 :   9c95d:  vmulps %ymm2,%ymm2,%ymm3
+    0.00 :   9c961:  vmulps %ymm3,%ymm2,%ymm3
+    0.00 :   9c965:  vmovaps %ymm12,%ymm4
+    0.00 :   9c969:  vfmadd213ps %ymm11,%ymm2,%ymm4
+    0.00 :   9c96e:  vfmadd213ps %ymm13,%ymm2,%ymm4
+    0.00 :   9c973:  vmulps %ymm4,%ymm3,%ymm3
+    0.00 :   9c977:  vmovups %ymm2,(%rbx,%r8,4)
+    0.00 :   9c97d:  vmovups %ymm3,(%r10,%r8,4)
+    0.00 :   9c983:  add    $0x20,%r8
+    0.00 :   9c987:  add    $0xfffffffffffffffc,%rbp
+    0.00 :   9c98b:  je     9c4d3 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xa13>
+         : 913   emit(first, Simd::<f32, A>::splat(first as f32) + iota, dist_out, fade_out);
+    0.00 :   9c991:  mov    %r8,%rdx
+    0.00 :   9c994:  add    $0xffffffffffffffe8,%rdx
+    0.00 :   9c998:  js     9c9b0 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xef0>
+    0.00 :   9c99a:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9c99f:  jmp    9c9c5 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xf05>
+    0.00 :   9c9a1:  data16 data16 data16 data16 data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   9c9b0:  mov    %rdx,%rcx
+    0.00 :   9c9b3:  shr    $1,%rcx
+    0.00 :   9c9b6:  and    $0x1,%edx
+    0.00 :   9c9b9:  or     %rcx,%rdx
+    0.00 :   9c9bc:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9c9c1:  vaddss %xmm2,%xmm2,%xmm2
+    0.00 :   9c9c5:  vbroadcastss %xmm2,%ymm2
+    0.00 :   9c9ca:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9c9ce:  vfmadd213ps %ymm8,%ymm9,%ymm2
+    0.00 :   9c9d3:  vroundps $0x9,%ymm2,%ymm3
+    0.00 :   9c9d9:  vsubps %ymm3,%ymm2,%ymm2
+    0.00 :   9c9dd:  vmulps %ymm2,%ymm2,%ymm3
+    0.00 :   9c9e1:  vmulps %ymm3,%ymm2,%ymm3
+    0.00 :   9c9e5:  vmovaps %ymm12,%ymm4
+    0.00 :   9c9e9:  vfmadd213ps %ymm11,%ymm2,%ymm4
+    0.00 :   9c9ee:  vfmadd213ps %ymm13,%ymm2,%ymm4
+    0.00 :   9c9f3:  vmulps %ymm4,%ymm3,%ymm3
+    0.00 :   9c9f7:  vmovups %ymm2,-0x60(%rbx,%r8,4)
+    0.00 :   9c9fe:  vmovups %ymm3,-0x60(%r10,%r8,4)
+    0.00 :   9ca05:  mov    %r8,%rdx
+    0.00 :   9ca08:  add    $0xfffffffffffffff0,%rdx
+    0.00 :   9ca0c:  js     9ca20 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xf60>
+    0.00 :   9ca0e:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9ca13:  jmp    9ca35 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xf75>
+    0.00 :   9ca15:  data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   9ca20:  mov    %rdx,%rcx
+    0.00 :   9ca23:  shr    $1,%rcx
+    0.00 :   9ca26:  and    $0x1,%edx
+    0.00 :   9ca29:  or     %rcx,%rdx
+    0.00 :   9ca2c:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9ca31:  vaddss %xmm2,%xmm2,%xmm2
+    0.00 :   9ca35:  vbroadcastss %xmm2,%ymm2
+    0.00 :   9ca3a:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9ca3e:  vfmadd213ps %ymm8,%ymm9,%ymm2
+    0.00 :   9ca43:  vroundps $0x9,%ymm2,%ymm3
+    0.00 :   9ca49:  vsubps %ymm3,%ymm2,%ymm2
+    0.00 :   9ca4d:  vmulps %ymm2,%ymm2,%ymm3
+    0.00 :   9ca51:  vmulps %ymm3,%ymm2,%ymm3
+    0.00 :   9ca55:  vmovaps %ymm12,%ymm4
+    0.00 :   9ca59:  vfmadd213ps %ymm11,%ymm2,%ymm4
+    0.00 :   9ca5e:  vfmadd213ps %ymm13,%ymm2,%ymm4
+    0.00 :   9ca63:  vmulps %ymm4,%ymm3,%ymm3
+    0.00 :   9ca67:  vmovups %ymm2,-0x40(%rbx,%r8,4)
+    0.00 :   9ca6e:  vmovups %ymm3,-0x40(%r10,%r8,4)
+    0.00 :   9ca75:  mov    %r8,%rdx
+    0.00 :   9ca78:  add    $0xfffffffffffffff8,%rdx
+    0.00 :   9ca7c:  js     9ca90 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xfd0>
+    0.00 :   9ca7e:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9ca83:  jmp    9caa5 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xfe5>
+    0.00 :   9ca85:  data16 cs nopw 0x0(%rax,%rax,1)
+    0.00 :   9ca90:  mov    %rdx,%rcx
+    0.00 :   9ca93:  shr    $1,%rcx
+    0.00 :   9ca96:  and    $0x1,%edx
+    0.00 :   9ca99:  or     %rcx,%rdx
+    0.00 :   9ca9c:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9caa1:  vaddss %xmm2,%xmm2,%xmm2
+    0.00 :   9caa5:  vbroadcastss %xmm2,%ymm2
+    0.00 :   9caaa:  vaddps %ymm2,%ymm10,%ymm2
+    0.00 :   9caae:  vfmadd213ps %ymm8,%ymm9,%ymm2
+    0.00 :   9cab3:  vroundps $0x9,%ymm2,%ymm3
+    0.00 :   9cab9:  vsubps %ymm3,%ymm2,%ymm2
+    0.00 :   9cabd:  vmulps %ymm2,%ymm2,%ymm3
+    0.00 :   9cac1:  vmulps %ymm3,%ymm2,%ymm3
+    0.00 :   9cac5:  vmovaps %ymm12,%ymm4
+    0.00 :   9cac9:  vfmadd213ps %ymm11,%ymm2,%ymm4
+    0.00 :   9cace:  vfmadd213ps %ymm13,%ymm2,%ymm4
+    0.00 :   9cad3:  vmulps %ymm4,%ymm3,%ymm3
+    0.00 :   9cad7:  vmovups %ymm2,-0x20(%rbx,%r8,4)
+    0.00 :   9cade:  vmovups %ymm3,-0x20(%r10,%r8,4)
+    0.00 :   9cae5:  test   %r8,%r8
+    0.00 :   9cae8:  jns    9c940 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xe80>
+    0.00 :   9caee:  mov    %r8,%rcx
+    0.00 :   9caf1:  shr    $1,%rcx
+    0.00 :   9caf4:  mov    %r8d,%edx
+    0.00 :   9caf7:  and    $0x1,%edx
+    0.00 :   9cafa:  or     %rcx,%rdx
+    0.00 :   9cafd:  vcvtsi2ss %rdx,%xmm1,%xmm2
+    0.00 :   9cb02:  vaddss %xmm2,%xmm2,%xmm2
+    0.00 :   9cb06:  jmp    9c945 <<quick_noise::noise::util::grid_data::PVGridData<2>>::new::<simply_simd::architectures::arch::Avx2, 1>+0xe85>
+    0.00 :   9cb0b:  movq   $0x4,(%rdx)
+    0.00 :   9cb12:  movq   $0x0,0x8(%rdx)
+    0.00 :   9cb1a:  lea    -0x811dc(%rip),%rdi        # 1b945 <anon.7ac91c5e8ca846fb152b8ff6f7e63dc8.124.llvm.15875858824139704562+0x1c6>
+    0.00 :   9cb21:  lea    0x1cd110(%rip),%rdx        # 269c38 <__frame_dummy_init_array_entry+0x158>
+    0.00 :   9cb28:  mov    $0x13,%esi
+    0.00 :   9cb2d:  vzeroupper
+    0.00 :   9cb30:  call   *0x1d804a(%rip)        # 274b80 <_DYNAMIC+0x268>
+    0.00 :   9cb36:  mov    $0x1,%edx
+    0.00 :   9cb3b:  mov    %rsp,%rax
+         : 1008  assert!(
+    0.00 :   9cb3e:  mov    %rax,0x60(%rsp)
+    0.00 :   9cb43:  mov    0x1d803e(%rip),%rax        # 274b88 <_DYNAMIC+0x270>
+    0.00 :   9cb4a:  mov    %rax,0x68(%rsp)
+    0.00 :   9cb4f:  add    $0x30,%r12
+    0.00 :   9cb53:  lea    (%r12,%rdx,4),%rax
+    0.00 :   9cb57:  mov    %rax,0x70(%rsp)
+    0.00 :   9cb5c:  mov    0x1d802d(%rip),%rax        # 274b90 <_DYNAMIC+0x278>
+    0.00 :   9cb63:  mov    %rax,0x78(%rsp)
+    0.00 :   9cb68:  lea    0x4(%rsp),%rcx
+    0.00 :   9cb6d:  mov    %rcx,0x80(%rsp)
+    0.00 :   9cb75:  mov    %rax,0x88(%rsp)
+    0.00 :   9cb7d:  lea    -0x85614(%rip),%rdi        # 17570 <anon.8de390a6bfa208c7ad888d8d01a84760.40.llvm.2640026482627602970+0x192>
+    0.00 :   9cb84:  lea    0x1cd0c5(%rip),%rdx        # 269c50 <__frame_dummy_init_array_entry+0x170>
+    0.00 :   9cb8b:  lea    0x60(%rsp),%rsi
+    0.00 :   9cb90:  vzeroupper
+    0.00 :   9cb93:  call   *0x1d7fe7(%rip)        # 274b80 <_DYNAMIC+0x268>

@@ -39,6 +39,10 @@ pub trait Combiner: Default + Copy + Clone {
     /// If this is set to true, every subsequent octave's weight is multiplied by persistence.
     const WEIGHT_DECAY: bool;
 
+    /// Determines whether or not to automatically apply weighting. Combiners that need to apply
+    /// the weight in their algorithm set this to true.
+    const MANUAL_WEIGHT_PROCESSING: bool = false;
+
     /// The type used for expressing State. The type `[ArchSimd<f32>; N]` can be used,
     /// where N is the number of variables tracked across samples. N does not include
     /// the running result. The type alias `FractalArray<N>` can also be used.
@@ -49,18 +53,20 @@ pub trait Combiner: Default + Copy + Clone {
 
     /// The config struct that is passed through noise calls to the Fractal's usage.
     /// This is used for storing new parameters specific to a custom Fractal type.
-    type Config: Copy + Default;
+    type Config: CombinerConfig + Copy + Default;
 
     /// Determines how new noise samples are combined with previous samples.
     ///
     /// # Parameters
-    /// - `config`: Parameters for the combiner
-    /// - `state`: An array of values maintained for each sample
-    /// - `current`: Existing noise value from previous samples
-    /// - `output`: New sample output from the current noise pass
+    /// - `config`: Parameters for the combiner.
+    /// - `state`: An array of values maintained for each sample.
+    /// - `weight`: The weight of the current noise call.
+    /// - `current`: Existing noise value from previous samples.
+    /// - `output`: New sample output from the current noise pass.
     fn apply_sample<A: Arch>(
         _config: &Self::Config,
         state: Self::State<A>,
+        _weight: Simd<f32, A>,
         cur_result: Simd<f32, A>,
         new_sample: Simd<f32, A>,
     ) -> (Self::State<A>, Simd<f32, A>) {
@@ -74,14 +80,16 @@ pub trait Combiner: Default + Copy + Clone {
     /// adding to 0.0 and multiplying by 1.0.
     ///
     /// # Parameters
-    /// - `config`: Parameters for the combiner
-    /// - `new_sample`: New sample output from the first noise pass
+    /// - `config`: Parameters for the combiner.
+    /// - `weight`: The weight of the current noise call.
+    /// - `new_sample`: New sample output from the first noise pass.
     #[inline(always)]
     fn initialize_sample<A: Arch>(
         config: &Self::Config,
+        weight: Simd<f32, A>,
         new_sample: Simd<f32, A>,
     ) -> (Self::State<A>, Simd<f32, A>) {
-        Self::apply_sample(config, Default::default(), Default::default(), new_sample)
+        Self::apply_sample(config, Default::default(), weight, Default::default(), new_sample)
     }
 
     /// Determines how the final noise sample is processed after
@@ -100,4 +108,18 @@ pub trait Combiner: Default + Copy + Clone {
     ) -> Simd<f32, A> {
         last
     }
+}
+
+pub trait CombinerConfig: Clone + Copy + Default {
+    /// Allows for extensible computation of combiner configs using
+    /// parameters from the noise call. This is applied once per call
+    /// and not once per octave.
+    fn populate_fields(&mut self, octaves: usize, amplitude: f32);
+}
+
+/// Empty config for combiners that do not need a config.
+#[derive(Default, Copy, Clone)]
+pub struct EmptyConfig {}
+impl CombinerConfig for EmptyConfig {
+    fn populate_fields(&mut self, _octaves: usize, _amplitude: f32) {}
 }

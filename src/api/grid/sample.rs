@@ -4,6 +4,7 @@ use crate::api::configs::*;
 use crate::api::grid::interface::{GridGenerator, GridNoise, GridNoiseParams};
 use crate::api::seed::gen_octave_seed;
 use crate::math::random::Random;
+use crate::noise::combiners::CombinerConfig;
 use crate::noise::util::grid_helpers::{Arena, ArenaBuffer};
 use crate::simd::Arch;
 use crate::{Combiner, CombinerState};
@@ -47,6 +48,9 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>> GridNoise<D, C, G> {
         } else {
             noise_config.amplitude
         };
+
+        let mut cur_config = *combiner_config;
+        cur_config.populate_fields(octaves, weight);
 
         // First octave:
         let mut params = GridNoiseParams {

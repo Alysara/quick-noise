@@ -27,7 +27,7 @@ pub use api::{
 };
 pub use noise::combiners::{
     Billow, Combiner, CombinerArray, CombinerState, Fbm, HybridMulti, HybridMultiConfig, Multi,
-    PingPong, PingPongConfig, Ridged, RidgedConfig, Terrace, TerraceConfig,
+    PingPong, PingPongConfig, Ridged, RidgedConfig, Terrace, TerraceConfig, CombinerConfig, EmptyConfig,
 };
 pub use noise::generators::{Cellular, Perlin, Simplex, Value};
 pub use noise::generators::{Euclidean, EuclideanSquared, Hybrid, Manhattan, MaxAxis, Minowski};

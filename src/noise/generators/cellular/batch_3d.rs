@@ -12,7 +12,7 @@ impl<F: DistanceFn> BatchGenerator<3> for Cellular<F> {
         seed: u32,
         input: [Simd<f32, A>; 3],
         freq: [Simd<f32, A>; 3],
-        gen_cfg: <Self as BatchGenerator<2>>::GenConfig
+        _gen_cfg: <Self as BatchGenerator<2>>::GenConfig
     ) -> Simd<f32, A> {
         // Constants.
         let three_halves: Simd<f32, A> = Simd::splat(1.5);
