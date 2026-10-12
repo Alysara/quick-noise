@@ -4,7 +4,7 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{ Combiner, CombinerState };
-use crate::noise::generators::Euclidean;
+use crate::noise::generators::{DistanceFn};
 use crate::noise::util::grid_data::CellularGridData;
 use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
 use crate::noise::util::grid_helpers::{
@@ -12,8 +12,7 @@ use crate::noise::util::grid_helpers::{
     validate_grid_size, validate_state_size, simd_rem_euclid_i32,
 };
 use crate::{
-    Cellular,
-    GridGenerator
+    Cellular, GridGenerator
 };
 
 /// Candidate offsets for the 12 candidates (4 base + 8 ring). The ring is
@@ -231,12 +230,12 @@ impl CellJitters {
 }
 
 #[enable_targets(A)]
-impl GridGenerator<2> for Cellular<Euclidean> {
-    type GenConfig = ();
+impl<F: DistanceFn> GridGenerator<2> for Cellular<F> {
+    type GenConfig = F;
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         combiner: C::Config,
-        _generator_config: <Self as GridGenerator<2>>::GenConfig,
+        generator_config: <Self as GridGenerator<2>>::GenConfig,
         state: &mut [f32],
         dst: &mut [f32],
     ) {
@@ -305,7 +304,7 @@ impl GridGenerator<2> for Cellular<Euclidean> {
                     x_it,
                 );
 
-                euclidean_fill::<A, C, INIT, FINAL>(
+                fill_cell::<A, C, F, INIT, FINAL>(
                     &grid_data,
                     &cell_jitters,
                     x_idx,
@@ -338,7 +337,7 @@ impl GridGenerator<2> for Cellular<Euclidean> {
 }
 
 #[inline(always)]
-fn euclidean_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
+fn fill_cell<A: Arch, C: Combiner, F: DistanceFn, const INIT: bool, const FINAL: bool>(
     grid_data: &CellularGridData<2>,
     jit: &CellJitters,
     x_idx: usize,
@@ -358,55 +357,102 @@ fn euclidean_fill<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         let sy = unsafe { grid_data.distances[1].get_unchecked(y).assume_init() };
         let row_start = y * row_width;
 
-        // (sy - jy)^2` is identical for every block in this cell segment,
+        // `(sy - jy)` is identical for every block in this cell segment,
         // so they are computed once per row instead of once per block.
-        let mut dysq: [MaybeUninit<Simd<f32, A>>; 12] =
+        let mut dy: [MaybeUninit<Simd<f32, A>>; 12] =
             std::array::from_fn(|_| MaybeUninit::uninit());
         for c in 0..12 {
             let jy = unsafe { (*jit.parts.add(c * 2 + 1)).assume_init() };
-            let dy_sq = (Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy))
-                * (Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy));
-            dysq[c].write(dy_sq);
+            let dy_ = Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy);
+            dy[c].write(dy_);
         }
-        let dysq = &dysq;
+        let dy = &dy;
 
-        let mut index = x_idx;
-        while index + lanes <= x_next {
-            euclidean_fill_block::<A, C, INIT, FINAL, false>(
-                grid_data,
-                jit,
-                &dysq,
-                weight_vec,
-                sy,
-                row_start,
-                x_next,
-                index,
-                dst,
-                state,
-                combiner_config,
-            );
-            index += lanes;
+        match F {
+            F::Euclidean => {   
+                let dysq: [MaybeUninit<Simd<f32, A>>; 12] = std::array::from_fn(|c| {
+                    let dy = unsafe { *dy[c].assume_init_ref() };
+                    MaybeUninit::new(dy * dy)
+                });
+                let mut index = x_idx;
+                while index + lanes <= x_next {
+                    fill_block::<A, C, INIT, FINAL, false>(
+                        grid_data,
+                        jit,
+                        &dysq,
+                        weight_vec,
+                        sy,
+                        row_start,
+                        x_next,
+                        index,
+                        dst,
+                        state,
+                        combiner_config,
+                    );
+                    index += lanes;
+                }
+                if index < x_next {
+                    fill_block::<A, C, INIT, FINAL, true>(
+                        grid_data,
+                        jit,
+                        &dysq,
+                        weight_vec,
+                        sy,
+                        row_start,
+                        x_next,
+                        index,
+                        dst,
+                        state,
+                        combiner_config,
+                    );
+                }
+            }
+
+            F::EuclideanSquared => {
+                let dysq: [MaybeUninit<Simd<f32, A>>; 12] = std::array::from_fn(|c| {
+                    let dy = unsafe { *dy[c].assume_init_ref() };
+                    MaybeUninit::new(dy * dy)
+                });
+                let mut index = x_idx;
+                while index + lanes <= x_next {
+                    fill_block::<A, C, INIT, FINAL, false>(
+                        grid_data,
+                        jit,
+                        &dysq,
+                        weight_vec,
+                        sy,
+                        row_start,
+                        x_next,
+                        index,
+                        dst,
+                        state,
+                        combiner_config,
+                    );
+                    index += lanes;
+                }
+                if index < x_next {
+                    fill_block::<A, C, INIT, FINAL, true>(
+                        grid_data,
+                        jit,
+                        &dysq,
+                        weight_vec,
+                        sy,
+                        row_start,
+                        x_next,
+                        index,
+                        dst,
+                        state,
+                        combiner_config,
+                    );
+                }
+            }
         }
-        if index < x_next {
-            euclidean_fill_block::<A, C, INIT, FINAL, true>(
-                grid_data,
-                jit,
-                &dysq,
-                weight_vec,
-                sy,
-                row_start,
-                x_next,
-                index,
-                dst,
-                state,
-                combiner_config,
-            );
-        }
+
     }
 }
 
 #[inline(always)]
-fn euclidean_fill_block<
+fn fill_block<
     A: Arch,
     C: Combiner,
     const INIT: bool,
@@ -477,7 +523,7 @@ fn euclidean_fill_block<
         }
     }
 
-    let raw_val = min_sq.sqrt() * weight_vec;
+    let raw_val = min_sq * weight_vec;
 
     let (cur_state, mut result) = if INIT {
         C::initialize_sample(combiner_config, raw_val)
@@ -528,7 +574,7 @@ mod tests {
     fn cellular_grid_2d_sanity() {
         let grid = Grid::<2>::new(32, 32);
         let mut result = [0.0; 1024];
-        grid.builder::<Fbm, Cellular<Euclidean>>().fill(result.as_mut_slice());
+        grid.builder::<Fbm, Cellular<EuclideanSquared>>().fill(result.as_mut_slice());
         verify_slice(result.as_slice());
     }
 
@@ -570,16 +616,16 @@ mod tests {
         check_reference(32, 96, seed, -5.0, 3.0, 1.0 / 6.0);
     }
 
-    fn check_reference(w: usize, h: usize, seed: i64, offset_x: f32, offset_y: f32, freq: f32) {
+    fn check_reference(w: usize, h: usize, seed: i64, offset_x: f64, offset_y: f64, freq: f32) {
         let grid = Grid::<2>::new(w, h)
             .seed(seed)
-            .sample_position(offset_x as f64, offset_y as f64);
+            .sample_position(offset_x, offset_y);
         let grid_seed = Random::mix_u64(seed as u64);
         let base_seed = Random::mix_u64_pair(grid_seed, 0xd5e7b3c94f8a1e6b);
         let octave_seed = gen_octave_seed([freq, freq], base_seed);
 
         let mut result = vec![0.0; w * h];
-        grid.builder::<Fbm, Cellular<Euclidean>>()
+        grid.builder::<Fbm, Cellular<EuclideanSquared>>()
             .frequency(freq)
             .fill(result.as_mut_slice());
 
@@ -600,7 +646,7 @@ mod tests {
     }
 
     fn reference(seed: u32, px: f32, py: f32, freq: f32) -> f32 {
-        let gain = Cellular::<Euclidean>::sample_batch::<StaticArch>(
+        let gain = Cellular::<EuclideanSquared>::sample_batch::<StaticArch>(
             seed,
             [Simd::splat(px), Simd::splat(py)],
             [Simd::splat(freq), Simd::splat(freq)]
