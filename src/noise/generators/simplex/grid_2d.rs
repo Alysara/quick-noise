@@ -243,7 +243,7 @@ fn simplex_fill_row<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
 
         let t_lo_pre = half_v - x0.mul_add(x0, y0 * y0);
 
-        let value =
+        let mut value =
             simplex_calc_simd::<A>(
                 x0,
                 y0,
@@ -255,7 +255,11 @@ fn simplex_fill_row<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
                 indices_hi.gather(&X_GRADIENTS_2D),
                 indices_hi.gather(&Y_GRADIENTS_2D),
                 upper
-            ) * weight_v;
+            );
+
+        if !C::MANUAL_WEIGHT_PROCESSING {
+            value *= weight_v;
+        };
 
         fill_block::<A, C, INIT, FINAL, false>(
             grid_data,
@@ -264,6 +268,7 @@ fn simplex_fill_row<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
             dst,
             row_start + ox,
             lanes,
+            weight_v,
             value
         );
         // Advance all tracking
@@ -291,7 +296,10 @@ fn simplex_fill_row<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
             gradient::<A>(ic, jc + 1, seed),
             gradient::<A>(ic + 1, jc + 1, seed),
         ];
-        let value = Simd::<f32, A>::splat(simplex_calc(x0, y0, &grads, upper) * weight);
+        let mut value = Simd::<f32, A>::splat(simplex_calc(x0, y0, &grads, upper));
+        if !C::MANUAL_WEIGHT_PROCESSING {
+            value *= weight_v;
+        }
 
         fill_block::<A, C, INIT, FINAL, true>(
             grid_data,
@@ -300,6 +308,7 @@ fn simplex_fill_row<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
             dst,
             row_start + ox,
             1,
+            weight_v,
             value
         );
 
@@ -318,12 +327,13 @@ fn fill_block<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool, const I
     dst: &mut [f32],
     sample_start: usize,
     lanes: usize,
+    weight: Simd<f32, A>,
     value: Simd<f32, A>
 ) {
     let sample_end = sample_start + lanes;
 
     let (cur_state, mut result) = if INIT {
-        C::initialize_sample(combiner, value)
+        C::initialize_sample(combiner, weight, value)
     } else {
         let mut cur_state = C::State::<A>::default();
         for i in 0..C::State::<A>::STATE_SIZE {
@@ -333,7 +343,7 @@ fn fill_block<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool, const I
             };
         }
         let cur_result = unsafe { maybe_tail_load::<A, IS_TAIL>(sample_start..sample_end, dst) };
-        C::apply_sample(combiner, cur_state, cur_result, value)
+        C::apply_sample(combiner, cur_state, weight, cur_result, value)
     };
 
     if !FINAL {

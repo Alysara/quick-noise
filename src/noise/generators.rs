@@ -85,7 +85,7 @@ impl DistanceFn for Minwoski {
 
 /// Cell-like noise created by the distance between each sample and its nearest node.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
-pub struct Cellular<D: DistanceFn> {
+pub struct Cellular<D: DistanceFn = Euclidean> {
     _distance: PhantomData<D>,
 }
 

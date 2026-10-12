@@ -3,7 +3,7 @@ use std::array::from_fn;
 use crate::api::batch::interface::{BatchGenerator, BatchNoise, DimIter, DimTuple};
 use crate::api::configs::*;
 use crate::api::seed::gen_octave_seed;
-use crate::noise::combiners::Combiner;
+use crate::noise::combiners::{Combiner, CombinerConfig};
 use crate::simd::{Arch, Simd};
 
 const MAX_FBM_OCTAVES: usize = 32;
@@ -11,12 +11,12 @@ const MAX_FBM_OCTAVES: usize = 32;
 impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
     /// Samples a batch of noise using arbitrary inputs from simd iterators.
     /// Returns a new iterator with the noise result without intermediate stores.
-    /// Using the builders instead is recommended for ease-of-use. 
+    /// Using the builders instead is recommended for ease-of-use.
     ///
     /// # Type Parameters:
     /// - `A`: The simd feature set to use.
     /// - `I`: The type of the simd iterator tuple input.
-    /// 
+    ///
     /// # Parameters:
     /// - `noise_config`: The parameters of the noise being generated.
     /// - `combiner_config`: Additional parameters for the combiner algorithm.
@@ -24,7 +24,7 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
     #[inline(always)]
     pub fn sample<A: Arch, I: DimIter<A, D>>(
         noise_config: NoiseConfig<D>,
-        combiner_config: C::Config,
+        mut combiner_config: C::Config,
         iters: I,
     ) -> impl Iterator<Item = Simd<f32, A>> {
         let octaves = noise_config.octaves;
@@ -45,11 +45,12 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
                 .for_each(|x| *x *= noise_config.lacunarity);
         }
 
+        combiner_config.populate_fields(octaves, noise_config.amplitude);
+
         let lacunarity = Simd::splat(noise_config.lacunarity);
         let persistence = Simd::splat(noise_config.persistence);
 
         #[allow(clippy::too_many_arguments)]
-        // #[enable_targets(A)]
         #[inline(always)]
         fn process_batch<const D: usize, C: Combiner, G: BatchGenerator<D>, A: Arch>(
             inputs: [Simd<f32, A>; D],
@@ -70,12 +71,16 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
             let seed = seeds[0];
             let mut weight = Simd::splat(weight);
             let mut freq = from_fn(|i| Simd::splat(frequency[i]));
-            let new_sample = G::sample_batch(seed, inputs, freq) * weight;
+            let mut new_sample = G::sample_batch(seed, inputs, freq);
+
+            if !C::MANUAL_WEIGHT_PROCESSING {
+                new_sample *= weight;
+            }
 
             if noise_config.initialize {
-                (state, sample) = C::initialize_sample(combiner_config, new_sample);
+                (state, sample) = C::initialize_sample(combiner_config, weight, new_sample);
             } else {
-                (state, sample) = C::apply_sample(combiner_config, state, sample, new_sample);
+                (state, sample) = C::apply_sample(combiner_config, state, weight, sample, new_sample);
             }
 
             for seed in seeds.iter().take(octaves).skip(1) {
@@ -84,8 +89,12 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
                     weight *= persistence;
                 }
 
-                let new_sample = G::sample_batch(*seed, inputs, freq) * weight;
-                (state, sample) = C::apply_sample(combiner_config, state, sample, new_sample);
+                new_sample = G::sample_batch(*seed, inputs, freq);
+                if !C::MANUAL_WEIGHT_PROCESSING {
+                    new_sample *= weight;
+                }
+
+                (state, sample) = C::apply_sample(combiner_config, state, weight, sample, new_sample);
             }
 
             if noise_config.finalize {

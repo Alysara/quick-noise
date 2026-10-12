@@ -6,13 +6,12 @@ use simply_simd::{Arch, Simd, enable_targets};
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
-use crate::noise::util::grid_data::{PVGridData, Lerp};
-use crate::noise::util::grid_helpers::{
-    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt,
-    maybe_tail_load, maybe_tail_store, pad_grid_size, validate_grid_size, validate_state_size,
-};
 use crate::noise::util::constants::{BYTE_SHUFFLE, HASH_PRIME};
-use crate::noise::util::grid_helpers::*;
+use crate::noise::util::grid_data::{Lerp, PVGridData};
+use crate::noise::util::grid_helpers::{
+    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt, maybe_tail_load,
+    maybe_tail_store, pad_grid_size, validate_grid_size, validate_state_size, *,
+};
 use crate::{GridGenerator, Perlin};
 
 pub const GRADIENTS_3D: [[f32; 3]; 16] = [
@@ -436,6 +435,12 @@ pub(super) fn dotted_trilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL
             .assume_init()
     };
 
+    let inc_weight = if C::MANUAL_WEIGHT_PROCESSING {
+        1.0
+    } else {
+        grid_data.weight
+    };
+
     let mut executer = DottedTrilerpExecuter::<A, C, INIT, FINAL> {
         config,
         fractal_config,
@@ -448,10 +453,10 @@ pub(super) fn dotted_trilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL
         top_step: Default::default(),
         dif_step: Default::default(),
         weight: Simd::splat(grid_data.weight),
-        y_inc_weighted: Simd::splat(grid_data.increment[1] * grid_data.weight),
+        y_inc_weighted: Simd::splat(grid_data.increment[1] * inc_weight),
         y_inc_hi: Simd::splat(y_frac_start),
         y_inc_lo: Simd::splat(y_frac_start - 1.0),
-        z_inc_weighted: Simd::splat(grid_data.increment[2] * grid_data.weight),
+        z_inc_weighted: Simd::splat(grid_data.increment[2] * inc_weight),
         z_inc_hi: Simd::splat(z_frac_start),
         z_inc_lo: Simd::splat(z_frac_start - 1.0),
     };
@@ -635,16 +640,28 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
                     .mul_add(y_brb - y_blb, y_blb)
                     .mul_sub(self.y_inc_weighted, y_bf_offset);
 
-                let tf_base =
-                    x_lerp.mul_add(sum_prod_trf - sum_prod_tlf, sum_prod_tlf) * self.weight;
-                let bf_base =
-                    x_lerp.mul_add(sum_prod_brf - sum_prod_blf, sum_prod_blf) * self.weight;
-                let hi_base_dif = x_lerp
-                    .mul_add(sum_prod_trb - sum_prod_tlb, sum_prod_tlb)
-                    .mul_sub(self.weight, tf_base);
-                let lo_base_dif = x_lerp
-                    .mul_add(sum_prod_brb - sum_prod_blb, sum_prod_blb)
-                    .mul_sub(self.weight, bf_base);
+                let mut tf_base = x_lerp.mul_add(sum_prod_trf - sum_prod_tlf, sum_prod_tlf);
+                let mut bf_base = x_lerp.mul_add(sum_prod_brf - sum_prod_blf, sum_prod_blf);
+
+                let mut hi_base_dif = x_lerp.mul_add(sum_prod_trb - sum_prod_tlb, sum_prod_tlb);
+                let mut lo_base_dif = x_lerp.mul_add(sum_prod_brb - sum_prod_blb, sum_prod_blb);
+
+                if !C::MANUAL_WEIGHT_PROCESSING {
+                    tf_base *= self.weight;
+                    bf_base *= self.weight;
+                    hi_base_dif = hi_base_dif.mul_sub(self.weight, tf_base);
+                    lo_base_dif = lo_base_dif.mul_sub(self.weight, bf_base);
+                } else {
+                    hi_base_dif -= tf_base;
+                    lo_base_dif -= bf_base;
+                }
+
+                // let mut hi_base_dif = x_lerp
+                //     .mul_add(sum_prod_trb - sum_prod_tlb, sum_prod_tlb)
+                //     .mul_sub(self.weight, tf_base);
+                // let mut lo_base_dif = x_lerp
+                //     .mul_add(sum_prod_brb - sum_prod_blb, sum_prod_blb)
+                //     .mul_sub(self.weight, bf_base);
 
                 buffers.z_tf_offset.write_simd_aligned(x, z_tf_offset);
                 buffers.z_bf_offset.write_simd_aligned(x, z_bf_offset);
@@ -804,7 +821,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         // Initialize sample if it is the first and apply combiner algorithm
         // for subsequent samples.
         let (cur_state, mut result) = if INIT {
-            C::initialize_sample(self.fractal_config, output)
+            C::initialize_sample(self.fractal_config, self.weight, output)
         } else {
             let mut cur_state = C::State::<A>::default();
             for i in 0..C::State::<A>::STATE_SIZE {
@@ -814,7 +831,13 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             }
 
             let cur_result = unsafe { load_simd_rw(dst, index, self.config, access_mode) };
-            C::apply_sample(self.fractal_config, cur_state, cur_result, output)
+            C::apply_sample(
+                self.fractal_config,
+                cur_state,
+                self.weight,
+                cur_result,
+                output,
+            )
         };
 
         // Save changes to state.

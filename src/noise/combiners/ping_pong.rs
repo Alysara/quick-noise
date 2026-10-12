@@ -1,5 +1,6 @@
 use simply_simd::{Arch, Simd};
 
+use crate::noise::combiners::CombinerConfig;
 use crate::{Combiner, CombinerArray};
 
 /// Config struct for PingPong combiner.
@@ -15,6 +16,10 @@ impl Default for PingPongConfig {
     }
 }
 
+impl CombinerConfig for PingPongConfig {
+    fn populate_fields(&mut self, octaves: usize, amplitude: f32) {}
+}
+
 /// Combines noise by oscillating samples together.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
 pub struct PingPong {}
@@ -28,6 +33,7 @@ impl Combiner for PingPong {
     fn apply_sample<A: Arch>(
         config: &PingPongConfig,
         state: Self::State<A>,
+        _weight: Simd<f32, A>,
         cur_result: Simd<f32, A>,
         new_sample: Simd<f32, A>,
     ) -> (Self::State<A>, Simd<f32, A>) {

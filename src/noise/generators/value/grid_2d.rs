@@ -381,11 +381,22 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             )
         };
 
+        let mut top = x_lerp.mul_add(tr - tl, tl);
+        let mut bot = x_lerp.mul_add(br - bl, bl);
+
+        if !C::MANUAL_WEIGHT_PROCESSING {
+            top *= self.weight;
+            bot *= self.weight;
+        }
         // Base interpolation.
+        // unsafe {
+        //     *self.top.get_unchecked_mut(block) = x_lerp.mul_add(tr - tl, tl) * self.weight;
+        //     let bottom = x_lerp.mul_add(br - bl, bl) * self.weight;
+        //     *self.dif.get_unchecked_mut(block) = bottom - *self.top.get_unchecked(block);
+        // }
         unsafe {
-            *self.top.get_unchecked_mut(block) = x_lerp.mul_add(tr - tl, tl) * self.weight;
-            let bottom = x_lerp.mul_add(br - bl, bl) * self.weight;
-            *self.dif.get_unchecked_mut(block) = bottom - *self.top.get_unchecked(block);
+            *self.top.get_unchecked_mut(block) = top;
+            *self.dif.get_unchecked_mut(block) = bot - top;
         }
     }
 
@@ -441,7 +452,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         // Initialize sample if it is the first and apply combiner algorithm
         // for subsequent samples.
         let (cur_state, mut result) = if INIT {
-            C::initialize_sample(self.fractal_config, output)
+            C::initialize_sample(self.fractal_config, self.weight, output)
         } else {
             let mut cur_state = C::State::<A>::default();
             for i in 0..C::State::<A>::STATE_SIZE {
@@ -451,7 +462,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             }
 
             let cur_result = unsafe { load_simd_rw(dst, index, self.config, access_mode) };
-            C::apply_sample(self.fractal_config, cur_state, cur_result, output)
+            C::apply_sample(self.fractal_config, cur_state, self.weight, cur_result, output)
         };
 
         // Save changes to state.

@@ -439,11 +439,27 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
                 let blb = self.gradients.blb.load_simd_aligned(x);
                 let brb = self.gradients.brb.load_simd_aligned(x);
 
-                let tf_base = x_lerp.mul_add(trf - tlf, tlf) * self.weight;
-                let bf_base = x_lerp.mul_add(brf - blf, blf) * self.weight;
+                let mut tf_base = x_lerp.mul_add(trf - tlf, tlf);
+                let mut bf_base = x_lerp.mul_add(brf - blf, blf);
 
-                let hi_base_dif = x_lerp.mul_add(trb - tlb, tlb).mul_sub(self.weight, tf_base);
-                let lo_base_dif = x_lerp.mul_add(brb - blb, blb).mul_sub(self.weight, bf_base);
+                let mut hi_base_dif = x_lerp.mul_add(trb - tlb, tlb);
+                let mut lo_base_dif = x_lerp.mul_add(brb - blb, blb);
+
+                if !C::MANUAL_WEIGHT_PROCESSING {
+                    tf_base *= self.weight;
+                    bf_base *= self.weight;
+                    hi_base_dif = hi_base_dif.mul_sub(self.weight, tf_base);
+                    lo_base_dif = lo_base_dif.mul_sub(self.weight, bf_base);
+                } else {
+                    hi_base_dif -= tf_base;
+                    lo_base_dif -= bf_base;
+                }
+
+                // let tf_base = x_lerp.mul_add(trf - tlf, tlf) * self.weight;
+                // let bf_base = x_lerp.mul_add(brf - blf, blf) * self.weight;
+                //
+                // let hi_base_dif = x_lerp.mul_add(trb - tlb, tlb).mul_sub(self.weight, tf_base);
+                // let lo_base_dif = x_lerp.mul_add(brb - blb, blb).mul_sub(self.weight, bf_base);
 
                 buffers.tf_base.write_simd_aligned(x, tf_base);
                 buffers.bf_base.write_simd_aligned(x, bf_base);
@@ -569,7 +585,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         // Initialize sample if it is the first and apply combiner algorithm
         // for subsequent samples.
         let (cur_state, mut result) = if INIT {
-            C::initialize_sample(self.fractal_config, output)
+            C::initialize_sample(self.fractal_config, self.weight, output)
         } else {
             let mut cur_state = C::State::<A>::default();
             for i in 0..C::State::<A>::STATE_SIZE {
@@ -579,7 +595,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             }
 
             let cur_result = unsafe { load_simd_rw(dst, index, self.config, access_mode) };
-            C::apply_sample(self.fractal_config, cur_state, cur_result, output)
+            C::apply_sample(self.fractal_config, cur_state, self.weight, cur_result, output)
         };
 
         // Save changes to state.

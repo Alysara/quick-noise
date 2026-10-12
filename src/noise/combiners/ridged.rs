@@ -1,5 +1,6 @@
 use simply_simd::{Arch, Simd};
 
+use crate::noise::combiners::CombinerConfig;
 use crate::{Combiner, CombinerArray};
 
 /// Config struct for the Ridged combiner.
@@ -7,11 +8,21 @@ use crate::{Combiner, CombinerArray};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RidgedConfig {
     pub gain: f32,
+    octaves: usize,
 }
 
 impl Default for RidgedConfig {
     fn default() -> Self {
-        Self { gain: 2.0 }
+        Self {
+            gain: 2.0,
+            octaves: 0,
+        }
+    }
+}
+
+impl CombinerConfig for RidgedConfig {
+    fn populate_fields(&mut self, octaves: usize, _amplitude: f32) {
+        self.octaves = octaves;
     }
 }
 
@@ -21,7 +32,8 @@ impl Default for RidgedConfig {
 pub struct Ridged {}
 
 impl Combiner for Ridged {
-    const WEIGHT_DECAY: bool = false;
+    const WEIGHT_DECAY: bool = true;
+    const MANUAL_WEIGHT_PROCESSING: bool = true;
     type State<A: Arch> = CombinerArray<A, 1>;
     type Config = RidgedConfig;
 
@@ -29,6 +41,7 @@ impl Combiner for Ridged {
     fn apply_sample<A: Arch>(
         config: &RidgedConfig,
         state: Self::State<A>,
+        amplitude: Simd<f32, A>,
         cur_result: Simd<f32, A>,
         new_sample: Simd<f32, A>,
     ) -> (Self::State<A>, Simd<f32, A>) {
@@ -45,12 +58,13 @@ impl Combiner for Ridged {
         let mut next_state = state;
         next_state[0] = next_weight;
 
-        (next_state, cur_result + signal)
+        (next_state, signal.mul_add(amplitude, cur_result))
     }
 
     #[inline(always)]
     fn initialize_sample<A: Arch>(
         _config: &RidgedConfig,
+        amplitude: Simd<f32, A>,
         new_sample: Simd<f32, A>,
     ) -> (Self::State<A>, Simd<f32, A>) {
         let one = Simd::splat(1.0);
@@ -61,7 +75,7 @@ impl Combiner for Ridged {
         let mut state: Self::State<A> = Default::default();
         state[0] = signal;
 
-        (state, signal)
+        (state, signal * amplitude)
     }
 
     #[inline(always)]

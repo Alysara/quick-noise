@@ -72,11 +72,15 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
             let freq = from_fn(|i| Simd::splat(octave_list[0].frequency[i]));
             let seed = seeds[0];
             let weight = Simd::splat(octave_list[0].weight * weight_coef);
-            let new_sample = G::sample_batch(seed, inputs, freq) * weight;
+            let mut new_sample = G::sample_batch(seed, inputs, freq);
+            if !C::MANUAL_WEIGHT_PROCESSING {
+                new_sample *= weight;
+            }
+
             if noise_config.initialize {
-                (state, sample) = C::initialize_sample(combiner_config, new_sample);
+                (state, sample) = C::initialize_sample(combiner_config, weight, new_sample);
             } else {
-                (state, sample) = C::apply_sample(combiner_config, state, sample, new_sample);
+                (state, sample) = C::apply_sample(combiner_config, state, weight, sample, new_sample);
             }
 
             for (i, octave) in octave_list
@@ -88,8 +92,12 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>> BatchNoise<D, C, G> {
                 let freq = from_fn(|i| Simd::splat(octave.frequency[i]));
                 let seed = seeds[i];
                 let weight = Simd::splat(octave_list[0].weight * weight_coef);
-                let new_sample = G::sample_batch(seed, inputs, freq) * weight;
-                (state, sample) = C::apply_sample(combiner_config, state, sample, new_sample);
+                let mut new_sample = G::sample_batch(seed, inputs, freq);
+                if !C::MANUAL_WEIGHT_PROCESSING {
+                    new_sample *= weight;
+                }
+
+                (state, sample) = C::apply_sample(combiner_config, state, weight, sample, new_sample);
             }
 
             if noise_config.finalize {

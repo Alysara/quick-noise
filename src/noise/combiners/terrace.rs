@@ -1,6 +1,6 @@
 use simply_simd::{Arch, Simd};
 
-use crate::{Combiner, CombinerArray};
+use crate::{Combiner, CombinerArray, noise::combiners::CombinerConfig};
 
 /// Config struct for the Terrace combiner.
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -19,6 +19,12 @@ impl Default for TerraceConfig {
     }
 }
 
+impl CombinerConfig for TerraceConfig {
+    fn populate_fields(&mut self, _octaves: usize, _amplitude: f32) {
+        self.step_size = 1.0 / self.steps;
+    }
+}
+
 /// Combines noise by adding subsequent samples together and binning the
 /// final result into a specified number of steps.
 #[derive(Default, Copy, Clone, PartialEq, Debug)]
@@ -32,6 +38,7 @@ impl Combiner for Terrace {
     fn apply_sample<A: Arch>(
         _config: &TerraceConfig,
         state: Self::State<A>,
+        _weight: Simd<f32, A>,
         cur_result: Simd<f32, A>,
         new_sample: Simd<f32, A>,
     ) -> (Self::State<A>, Simd<f32, A>) {
@@ -41,6 +48,7 @@ impl Combiner for Terrace {
     #[inline(always)]
     fn initialize_sample<A: Arch>(
         _config: &TerraceConfig,
+        _weight: Simd<f32, A>,
         new_sample: Simd<f32, A>,
     ) -> (Self::State<A>, Simd<f32, A>) {
         (Default::default(), new_sample)

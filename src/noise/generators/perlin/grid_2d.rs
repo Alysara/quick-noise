@@ -340,6 +340,13 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         dst: &'a mut [f32],
     ) -> Self {
         let config = InterpolationConfig::<A>::new(Self::MAX_BLOCKS, params.grid_size[0]);
+
+        let y_weighted_increment = if !C::MANUAL_WEIGHT_PROCESSING {
+            Simd::splat(grid_data.increment[1] * grid_data.weight)
+        } else {
+            Simd::splat(grid_data.increment[1])
+        };
+
         Self {
             config,
             fractal_config,
@@ -350,7 +357,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             d_top: Default::default(),
             d_dif: Default::default(),
             weight_vec: Simd::splat(grid_data.weight),
-            y_weighted_increment: Simd::splat(grid_data.increment[1] * grid_data.weight),
+            y_weighted_increment,
             y_upper_increment: Simd::zero(),
             y_lower_increment: Simd::zero(),
             state,
@@ -515,8 +522,13 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         };
 
         // Dot product at the current y offset for the top and bottom grid rows.
-        let top = ay_t.mul_add(self.y_upper_increment, ax_t) * self.weight_vec;
-        let bot = ay_b.mul_add(self.y_lower_increment, ax_b) * self.weight_vec;
+        let mut top = ay_t.mul_add(self.y_upper_increment, ax_t);
+        let mut bot = ay_b.mul_add(self.y_lower_increment, ax_b);
+
+        if !C::MANUAL_WEIGHT_PROCESSING {
+            top *= self.weight_vec;
+            bot *= self.weight_vec;
+        }
 
         unsafe {
             *self.top.get_unchecked_mut(block) = top;
@@ -576,7 +588,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         // Initialize sample if it is the first and apply combiner algorithm
         // for subsequent samples.
         let (cur_state, mut result) = if INIT {
-            C::initialize_sample(self.fractal_config, output)
+            C::initialize_sample(self.fractal_config, self.weight_vec, output)
         } else {
             let mut cur_state = C::State::<A>::default();
             for i in 0..C::State::<A>::STATE_SIZE {
@@ -587,7 +599,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             }
 
             let cur_result = unsafe { load_simd_rw(self.dst, index, &self.config, access_mode) };
-            C::apply_sample(self.fractal_config, cur_state, cur_result, output)
+            C::apply_sample(self.fractal_config, cur_state, self.weight_vec, cur_result, output)
         };
 
         // Save changes to state.
