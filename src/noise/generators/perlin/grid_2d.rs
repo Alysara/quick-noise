@@ -1,7 +1,7 @@
 use std::mem::MaybeUninit;
 use std::ops::Range;
 
-use simply_simd::{Arch, Simd, enable_targets};
+use simply_simd::{ Arch, Simd, enable_targets };
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{Combiner, CombinerState};
@@ -41,9 +41,9 @@ impl GridGenerator<2> for Perlin {
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         fractal_config: C::Config,
-        _generator_config: (),
+        _gen_cfg: (),
         state: &mut [f32],
-        dst: &mut [f32],
+        dst: &mut [f32]
     ) {
         // Validate the inputs.
         validate_grid_size(params.grid_size, dst.len());
@@ -308,7 +308,7 @@ pub(crate) struct DottedBilerpExecuter<
     A: Arch,
     C: Combiner,
     const INIT: bool,
-    const FINAL: bool,
+    const FINAL: bool
 > {
     config: InterpolationConfig<A>,
     fractal_config: &'a C::Config,
@@ -485,11 +485,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         gradients: &PerlinGradients2D,
         x: usize,
     ) {
-        let num_blocks = if IS_TAIL {
-            NUM_BLOCKS
-        } else {
-            Self::MAX_BLOCKS
-        };
+        let num_blocks = if IS_TAIL { NUM_BLOCKS } else { Self::MAX_BLOCKS };
 
         // These blocked loops will get entirely unrolled by the compiler.
         for block in 0..num_blocks {
@@ -548,16 +544,10 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         index: usize,
     ) {
         let y_lerp = Simd::splat(unsafe {
-            self.grid_data.fade_factors[1]
-                .get_unchecked(y)
-                .assume_init()
+            self.grid_data.fade_factors[1].get_unchecked(y).assume_init()
         });
 
-        let num_blocks = if IS_TAIL {
-            NUM_BLOCKS
-        } else {
-            Self::MAX_BLOCKS
-        };
+        let num_blocks = if IS_TAIL { NUM_BLOCKS } else { Self::MAX_BLOCKS };
 
         for block in 0..num_blocks {
             let index = index + x + block * Simd::<f32, A>::LANES;
@@ -579,10 +569,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
     ) {
         let access_mode = SimdAccessMode::from_u8(ACCESS_MODE);
         let output = unsafe {
-            y_lerp.mul_add(
-                *self.dif.get_unchecked(block),
-                *self.top.get_unchecked(block),
-            )
+            y_lerp.mul_add(*self.dif.get_unchecked(block), *self.top.get_unchecked(block))
         };
 
         // Initialize sample if it is the first and apply combiner algorithm

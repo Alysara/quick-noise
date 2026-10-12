@@ -19,6 +19,7 @@ pub struct BatchNoiseBuilder<
 > {
     pub(crate) noise_config: NoiseConfig<D>,
     pub(crate) combiner_config: C::Config,
+    pub(crate) gen_config: G::GenConfig,
     pub(crate) iters: I,
     pub(crate) _noise_type: PhantomData<G>,
     pub(crate) _arch: PhantomData<A>,
@@ -72,6 +73,7 @@ where
         Self {
             noise_config: Default::default(),
             combiner_config: Default::default(),
+            gen_config: Default::default(),
             iters: multizip((x_iter, y_iter)),
             _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
@@ -87,6 +89,7 @@ where
         Self {
             noise_config,
             combiner_config,
+            gen_config: Default::default(),
             iters: multizip((x_iter, y_iter)),
             _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
@@ -136,6 +139,7 @@ where
         Self {
             noise_config: Default::default(),
             combiner_config: Default::default(),
+            gen_config: Default::default(),
             iters: multizip((x_iter, y_iter, z_iter)),
             _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
@@ -152,6 +156,7 @@ where
         Self {
             noise_config,
             combiner_config,
+            gen_config: Default::default(),
             iters: multizip((x_iter, y_iter, z_iter)),
             _noise_type: PhantomData::<G>,
             _arch: PhantomData::<A>,
@@ -212,6 +217,6 @@ impl<const D: usize, C: Combiner, G: BatchGenerator<D>, A: Arch, I: DimIter<A, D
     declare_build!(self, { self.into_iter().collect() });
 
     declare_into_iter!(A, self, {
-        BatchNoise::<D, C, G>::sample(self.noise_config, self.combiner_config, self.iters)
+        BatchNoise::<D, C, G>::sample(self.noise_config, self.combiner_config, self.gen_config, self.iters)
     });
 }

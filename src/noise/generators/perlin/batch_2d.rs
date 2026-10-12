@@ -30,11 +30,14 @@ pub const Y_GRADIENTS_2D: [f32; 8] = [
 
 // #[enable_targets(A)]
 impl BatchGenerator<2> for Perlin {
+    type GenConfig = ();
+
     #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 2],
         freq: [Simd<f32, A>; 2],
+        _gen_cfg: <Self as BatchGenerator<2>>::GenConfig
     ) -> Simd<f32, A> {
         // Constants.
         let six: Simd<f32, A> = Simd::splat(6.0);

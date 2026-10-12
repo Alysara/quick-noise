@@ -5,11 +5,14 @@ use crate::noise::generators::Value;
 use crate::noise::util::constants::{BYTE_SHUFFLE, VALUE_EXP_MASK, HASH_MASK, HASH_PRIME};
 
 impl BatchGenerator<3> for Value {
+    type GenConfig = ();
+
     #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 3],
         freq: [Simd<f32, A>; 3],
+        _gen_cfg: <Self as BatchGenerator<2>>::GenConfig
     ) -> Simd<f32, A> {
         // Constants.
         let neg_two: Simd<f32, A> = Simd::splat(-2.0);

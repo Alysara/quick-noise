@@ -2,17 +2,23 @@ use std::array::from_fn;
 use std::mem::MaybeUninit;
 use std::ops::Range;
 
-use simply_simd::{Arch, Simd, enable_targets};
+use simply_simd::{ Arch, Simd, enable_targets };
 
 use crate::api::grid::interface::GridNoiseParams;
-use crate::noise::combiners::{Combiner, CombinerState};
-use crate::noise::util::constants::{BYTE_SHUFFLE, HASH_PRIME};
-use crate::noise::util::grid_data::{Lerp, PVGridData};
+use crate::noise::combiners::{ Combiner, CombinerState };
+use crate::noise::util::grid_data::{ PVGridData, Lerp };
 use crate::noise::util::grid_helpers::{
-    Arena, ArenaBuffer, InterpolationConfig, MaybeUninitSliceSimdExt, maybe_tail_load,
-    maybe_tail_store, pad_grid_size, validate_grid_size, validate_state_size, *,
+    Arena,
+    ArenaBuffer,
+    InterpolationConfig,
+    MaybeUninitSliceSimdExt,
+    pad_grid_size,
+    validate_grid_size,
+    validate_state_size,
+    *
 };
-use crate::{GridGenerator, Perlin};
+use crate::noise::util::constants::{ BYTE_SHUFFLE, HASH_PRIME };
+use crate::{ GridGenerator, Perlin };
 
 pub const GRADIENTS_3D: [[f32; 3]; 16] = [
     [1.0, 1.0, 0.0],
@@ -77,9 +83,9 @@ impl GridGenerator<3> for Perlin {
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<3>,
         fractal_config: C::Config,
-        _generator_config: <Self as GridGenerator<2>>::GenConfig,
+        _gen_cfg: <Self as GridGenerator<2>>::GenConfig,
         state: &mut [f32],
-        dst: &mut [f32],
+        dst: &mut [f32]
     ) {
         // Validate and pad grid size.
         validate_grid_size(params.grid_size, dst.len());
@@ -104,8 +110,9 @@ impl GridGenerator<3> for Perlin {
         // Iterate through single y chunks but full x chunks.
         let mut z_cur_index = 0;
         for z_it in 0..grid_data.num_loops[2] {
-            let z_next_index =
-                unsafe { grid_data.grid_indices[2].get_unchecked(z_it).assume_init() as usize };
+            let z_next_index = unsafe {
+                grid_data.grid_indices[2].get_unchecked(z_it).assume_init() as usize
+            };
             let z_range = z_cur_index..z_next_index;
 
             // Set the top gradients.
@@ -114,8 +121,9 @@ impl GridGenerator<3> for Perlin {
 
             let mut y_cur_index = 0;
             for y_it in 0..grid_data.num_loops[1] {
-                let y_next_index =
-                    unsafe { grid_data.grid_indices[1].get_unchecked(y_it).assume_init() as usize };
+                let y_next_index = unsafe {
+                    grid_data.grid_indices[1].get_unchecked(y_it).assume_init() as usize
+                };
                 let y_range = y_cur_index..y_next_index;
 
                 // Set bottom gradients.
@@ -128,7 +136,7 @@ impl GridGenerator<3> for Perlin {
                     &grid_data,
                     &gradients,
                     (y_range, z_range.clone()),
-                    (state, dst),
+                    (state, dst)
                 );
 
                 // Reuse the top and bottom gradients.
@@ -147,22 +155,18 @@ pub(super) fn fill_gradients_3d<'a, A: Arch>(
     grid_data: &PVGridData<3>,
     gradients: &mut PerlinGradients3D<'a>,
     y_it: usize,
-    z_it: usize,
+    z_it: usize
 ) {
     let lanes = Simd::<f32, A>::LANES;
-    let y_start = y_it as i32 + grid_data.grid_start[1];
-    let z_start = z_it as i32 + grid_data.grid_start[2];
+    let y_start = (y_it as i32) + grid_data.grid_start[1];
+    let z_start = (z_it as i32) + grid_data.grid_start[2];
     let (z1, z2) = match grid_data.octave_tiling[2] {
-        None => (
-            (z_start as u32).wrapping_mul(params.seed),
-            (z_start as u32)
-                .wrapping_mul(params.seed)
-                .wrapping_add(params.seed),
-        ),
-        Some(t) => (
-            (z_start.rem_euclid(t as i32)) as u32,
-            ((z_start + 1).rem_euclid(t as i32)) as u32,
-        ),
+        None =>
+            (
+                (z_start as u32).wrapping_mul(params.seed),
+                (z_start as u32).wrapping_mul(params.seed).wrapping_add(params.seed),
+            ),
+        Some(t) => (z_start.rem_euclid(t as i32) as u32, (z_start + 1).rem_euclid(t as i32) as u32),
     };
     let z_vec = [Simd::splat(z1), Simd::splat(z2)];
 
@@ -195,7 +199,7 @@ pub(super) fn fill_gradients_3d<'a, A: Arch>(
             unsafe {
                 gradients.scratch[0].write_simd_aligned(i, grads[0]);
                 gradients.scratch[1].write_simd_aligned(i, grads[1]);
-            };
+            }
 
             x_vec += x_vec_stride;
         }
@@ -212,7 +216,7 @@ pub(super) fn fill_gradients_3d<'a, A: Arch>(
             unsafe {
                 gradients.scratch[0].write_simd_aligned(i, grads[0]);
                 gradients.scratch[1].write_simd_aligned(i, grads[1]);
-            };
+            }
             x_vec += x_vec_stride;
         }
     }
@@ -239,77 +243,12 @@ pub(super) fn fill_gradients_3d<'a, A: Arch>(
 #[inline(always)]
 pub(super) fn fill_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
     grid_data: &PVGridData<3>,
-    gradients: &mut PerlinGradients3D<'a>,
+    gradients: &mut PerlinGradients3D<'a>
 ) {
     let (grad_buffer, left, right) = if IS_FRONT {
-        (
-            &mut gradients.scratch[0],
-            &mut gradients.blf,
-            &mut gradients.brf,
-        )
+        (&mut gradients.scratch[0], &mut gradients.blf, &mut gradients.brf)
     } else {
-        (
-            &mut gradients.scratch[1],
-            &mut gradients.blb,
-            &mut gradients.brb,
-        )
-    };
-
-    let mut x_cur_index = 0;
-    for x_it in 0..grid_data.num_loops[0] {
-        // Find range of gradients to set.
-        let x_next_index = unsafe { grid_data.grid_indices[0].get_unchecked(x_it).assume_init() };
-        let mut amount = (x_next_index - x_cur_index) as isize;
-
-        unsafe {
-            let l = grad_buffer.get_unchecked(x_it).assume_init() as usize;
-            let r = grad_buffer.get_unchecked(x_it + 1).assume_init() as usize;
-
-            let l = GRADIENTS_3D.get_unchecked(l);
-            let r = GRADIENTS_3D.get_unchecked(r);
-
-            let lx = Simd::<f32, A>::splat(l[0]);
-            let ly = Simd::<f32, A>::splat(l[1]);
-            let lz = Simd::<f32, A>::splat(l[2]);
-            let rx = Simd::<f32, A>::splat(r[0]);
-            let ry = Simd::<f32, A>::splat(r[1]);
-            let rz = Simd::<f32, A>::splat(r[2]);
-
-            let mut index = x_cur_index as usize;
-            while amount > 0 {
-                left[0].write_simd(index, lx);
-                left[1].write_simd(index, ly);
-                left[2].write_simd(index, lz);
-                right[0].write_simd(index, rx);
-                right[1].write_simd(index, ry);
-                right[2].write_simd(index, rz);
-
-                amount -= Simd::<f32, A>::LANES as isize;
-                index += Simd::<f32, A>::LANES;
-            }
-        }
-
-        x_cur_index = x_next_index;
-    }
-}
-
-#[inline(always)]
-pub(super) fn grid_gradients_3d_set_loop<'a, A: Arch, const IS_FRONT: bool>(
-    grid_data: &PVGridData<3>,
-    gradients: &mut PerlinGradients3D<'a>,
-) {
-    let (grad_buffer, left, right) = if IS_FRONT {
-        (
-            &mut gradients.scratch[0],
-            &mut gradients.blf,
-            &mut gradients.brf,
-        )
-    } else {
-        (
-            &mut gradients.scratch[1],
-            &mut gradients.blb,
-            &mut gradients.brb,
-        )
+        (&mut gradients.scratch[1], &mut gradients.blb, &mut gradients.brb)
     };
 
     let mut x_cur_index = 0;
@@ -392,7 +331,7 @@ pub(crate) struct DottedTrilerpExecuter<
     A: Arch,
     C: Combiner,
     const INIT: bool,
-    const FINAL: bool,
+    const FINAL: bool
 > {
     config: &'a InterpolationConfig<A>,
     fractal_config: &'a C::Config,
@@ -422,17 +361,13 @@ pub(super) fn dotted_trilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL
     grid_data: &PVGridData<3>,
     gradients: &PerlinGradients3D,
     ranges: (Range<usize>, Range<usize>),
-    output: (&mut [f32], &mut [f32]),
+    output: (&mut [f32], &mut [f32])
 ) {
     let y_frac_start = unsafe {
-        grid_data.distances[1]
-            .get_unchecked(ranges.0.start)
-            .assume_init()
+        grid_data.distances[1].get_unchecked(ranges.0.start).assume_init()
     };
     let z_frac_start = unsafe {
-        grid_data.distances[2]
-            .get_unchecked(ranges.1.start)
-            .assume_init()
+        grid_data.distances[2].get_unchecked(ranges.1.start).assume_init()
     };
 
     let inc_weight = if C::MANUAL_WEIGHT_PROCESSING {
@@ -475,56 +410,72 @@ pub(super) fn dotted_trilerp<A: Arch, C: Combiner, const INIT: bool, const FINAL
         let has_partial = config.has_partial;
         let has_block_head = config.has_block_head;
         match DottedTrilerpExecuter::<A, C, INIT, FINAL>::MAX_BLOCKS {
-            1 => match (block_tail_size, has_partial, has_block_head) {
-                (0, true, false) => executer.interpolate::<true, 0, SCALAR>(buffers, state, dst),
-                (0, true, true) => executer.interpolate::<true, 0, PARTIAL>(buffers, state, dst),
-                _ => {}
-            },
-            2 => match (block_tail_size, has_partial, has_block_head) {
-                (1, false, _) => executer.interpolate::<true, 1, FULL>(buffers, state, dst),
-                (0, true, false) => executer.interpolate::<true, 0, SCALAR>(buffers, state, dst),
-                (0, true, true) => executer.interpolate::<true, 0, PARTIAL>(buffers, state, dst),
-                (1, true, _) => executer.interpolate::<true, 1, PARTIAL>(buffers, state, dst),
-                _ => {}
-            },
-            4 => match (block_tail_size, has_partial, has_block_head) {
-                (1, false, _) => executer.interpolate::<true, 1, FULL>(buffers, state, dst),
-                (2, false, _) => executer.interpolate::<true, 2, FULL>(buffers, state, dst),
-                (3, false, _) => executer.interpolate::<true, 3, FULL>(buffers, state, dst),
-                (0, true, false) => executer.interpolate::<true, 0, SCALAR>(buffers, state, dst),
-                (0, true, true) => executer.interpolate::<true, 0, PARTIAL>(buffers, state, dst),
-                (1, true, _) => executer.interpolate::<true, 1, PARTIAL>(buffers, state, dst),
-                (2, true, _) => executer.interpolate::<true, 2, PARTIAL>(buffers, state, dst),
-                (3, true, _) => executer.interpolate::<true, 3, PARTIAL>(buffers, state, dst),
-                _ => {}
-            },
-            8 => match (block_tail_size, has_partial, has_block_head) {
-                (1, false, _) => executer.interpolate::<true, 1, FULL>(buffers, state, dst),
-                (2, false, _) => executer.interpolate::<true, 2, FULL>(buffers, state, dst),
-                (3, false, _) => executer.interpolate::<true, 3, FULL>(buffers, state, dst),
-                (4, false, _) => executer.interpolate::<true, 4, FULL>(buffers, state, dst),
-                (5, false, _) => executer.interpolate::<true, 5, FULL>(buffers, state, dst),
-                (6, false, _) => executer.interpolate::<true, 6, FULL>(buffers, state, dst),
-                (7, false, _) => executer.interpolate::<true, 7, FULL>(buffers, state, dst),
-                (0, true, false) => executer.interpolate::<true, 0, SCALAR>(buffers, state, dst),
-                (0, true, true) => executer.interpolate::<true, 0, PARTIAL>(buffers, state, dst),
-                (1, true, _) => executer.interpolate::<true, 1, PARTIAL>(buffers, state, dst),
-                (2, true, _) => executer.interpolate::<true, 2, PARTIAL>(buffers, state, dst),
-                (3, true, _) => executer.interpolate::<true, 3, PARTIAL>(buffers, state, dst),
-                (4, true, _) => executer.interpolate::<true, 4, PARTIAL>(buffers, state, dst),
-                (5, true, _) => executer.interpolate::<true, 5, PARTIAL>(buffers, state, dst),
-                (6, true, _) => executer.interpolate::<true, 6, PARTIAL>(buffers, state, dst),
-                (7, true, _) => executer.interpolate::<true, 7, PARTIAL>(buffers, state, dst),
-                _ => {}
-            },
+            1 =>
+                match (block_tail_size, has_partial, has_block_head) {
+                    (0, true, false) =>
+                        executer.interpolate::<true, 0, SCALAR>(buffers, state, dst),
+                    (0, true, true) =>
+                        executer.interpolate::<true, 0, PARTIAL>(buffers, state, dst),
+                    _ => {}
+                }
+            2 =>
+                match (block_tail_size, has_partial, has_block_head) {
+                    (1, false, _) => executer.interpolate::<true, 1, FULL>(buffers, state, dst),
+                    (0, true, false) =>
+                        executer.interpolate::<true, 0, SCALAR>(buffers, state, dst),
+                    (0, true, true) =>
+                        executer.interpolate::<true, 0, PARTIAL>(buffers, state, dst),
+                    (1, true, _) => executer.interpolate::<true, 1, PARTIAL>(buffers, state, dst),
+                    _ => {}
+                }
+            4 =>
+                match (block_tail_size, has_partial, has_block_head) {
+                    (1, false, _) => executer.interpolate::<true, 1, FULL>(buffers, state, dst),
+                    (2, false, _) => executer.interpolate::<true, 2, FULL>(buffers, state, dst),
+                    (3, false, _) => executer.interpolate::<true, 3, FULL>(buffers, state, dst),
+                    (0, true, false) =>
+                        executer.interpolate::<true, 0, SCALAR>(buffers, state, dst),
+                    (0, true, true) =>
+                        executer.interpolate::<true, 0, PARTIAL>(buffers, state, dst),
+                    (1, true, _) => executer.interpolate::<true, 1, PARTIAL>(buffers, state, dst),
+                    (2, true, _) => executer.interpolate::<true, 2, PARTIAL>(buffers, state, dst),
+                    (3, true, _) => executer.interpolate::<true, 3, PARTIAL>(buffers, state, dst),
+                    _ => {}
+                }
+            8 =>
+                match (block_tail_size, has_partial, has_block_head) {
+                    (1, false, _) => executer.interpolate::<true, 1, FULL>(buffers, state, dst),
+                    (2, false, _) => executer.interpolate::<true, 2, FULL>(buffers, state, dst),
+                    (3, false, _) => executer.interpolate::<true, 3, FULL>(buffers, state, dst),
+                    (4, false, _) => executer.interpolate::<true, 4, FULL>(buffers, state, dst),
+                    (5, false, _) => executer.interpolate::<true, 5, FULL>(buffers, state, dst),
+                    (6, false, _) => executer.interpolate::<true, 6, FULL>(buffers, state, dst),
+                    (7, false, _) => executer.interpolate::<true, 7, FULL>(buffers, state, dst),
+                    (0, true, false) =>
+                        executer.interpolate::<true, 0, SCALAR>(buffers, state, dst),
+                    (0, true, true) =>
+                        executer.interpolate::<true, 0, PARTIAL>(buffers, state, dst),
+                    (1, true, _) => executer.interpolate::<true, 1, PARTIAL>(buffers, state, dst),
+                    (2, true, _) => executer.interpolate::<true, 2, PARTIAL>(buffers, state, dst),
+                    (3, true, _) => executer.interpolate::<true, 3, PARTIAL>(buffers, state, dst),
+                    (4, true, _) => executer.interpolate::<true, 4, PARTIAL>(buffers, state, dst),
+                    (5, true, _) => executer.interpolate::<true, 5, PARTIAL>(buffers, state, dst),
+                    (6, true, _) => executer.interpolate::<true, 6, PARTIAL>(buffers, state, dst),
+                    (7, true, _) => executer.interpolate::<true, 7, PARTIAL>(buffers, state, dst),
+                    _ => {}
+                }
             _ => {}
         }
     }
 }
 
-impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
-    DottedTrilerpExecuter<'a, A, C, INIT, FINAL>
-{
+impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool> DottedTrilerpExecuter<
+    'a,
+    A,
+    C,
+    INIT,
+    FINAL
+> {
     const MAX_BLOCKS: usize = A::NUM_SIMD_REG / 8;
 
     #[inline(always)]
@@ -532,7 +483,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         &mut self,
         buffers: &DottedTrilerpBuffers,
         state: &mut [f32],
-        dst: &mut [f32],
+        dst: &mut [f32]
     ) {
         let range = if IS_TAIL {
             self.config.block_tail_start..self.grid_data.grid_size[0]
@@ -555,7 +506,10 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             let mut x = range.start;
             while x < range.end {
                 self.intialize_factors::<IS_TAIL, NUM_BLOCKS, ACCESS_MODE>(
-                    buffers, x, z_cur, z_lerp,
+                    buffers,
+                    x,
+                    z_cur,
+                    z_lerp
                 );
 
                 let index = z * z_hop;
@@ -665,21 +619,13 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
 
                 buffers.z_tf_offset.write_simd_aligned(x, z_tf_offset);
                 buffers.z_bf_offset.write_simd_aligned(x, z_bf_offset);
-                buffers
-                    .z_top_offset_dif
-                    .write_simd_aligned(x, z_tb_offset - z_tf_offset);
-                buffers
-                    .z_bottom_offset_dif
-                    .write_simd_aligned(x, z_bb_offset - z_bf_offset);
+                buffers.z_top_offset_dif.write_simd_aligned(x, z_tb_offset - z_tf_offset);
+                buffers.z_bottom_offset_dif.write_simd_aligned(x, z_bb_offset - z_bf_offset);
 
                 buffers.y_tf_offset.write_simd_aligned(x, y_tf_offset);
                 buffers.y_bf_offset.write_simd_aligned(x, y_bf_offset);
-                buffers
-                    .y_top_offset_dif
-                    .write_simd_aligned(x, y_hi_offset_dif);
-                buffers
-                    .y_bottom_offset_dif
-                    .write_simd_aligned(x, y_lo_offset_dif);
+                buffers.y_top_offset_dif.write_simd_aligned(x, y_hi_offset_dif);
+                buffers.y_bottom_offset_dif.write_simd_aligned(x, y_lo_offset_dif);
 
                 buffers.tf_base.write_simd_aligned(x, tf_base);
                 buffers.bf_base.write_simd_aligned(x, bf_base);
@@ -695,13 +641,9 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         buffers: &DottedTrilerpBuffers,
         x: usize,
         z_vec: Simd<f32, A>,
-        z_lerp: Simd<f32, A>,
+        z_lerp: Simd<f32, A>
     ) {
-        let num_blocks = if IS_TAIL {
-            NUM_BLOCKS
-        } else {
-            Self::MAX_BLOCKS
-        };
+        let num_blocks = if IS_TAIL { NUM_BLOCKS } else { Self::MAX_BLOCKS };
 
         // These blocked loops will get entirely unrolled by the compiler.
         for block in 0..num_blocks {
@@ -722,7 +664,7 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         i: usize,
         block: usize,
         z_vec: Simd<f32, A>,
-        z_lerp: Simd<f32, A>,
+        z_lerp: Simd<f32, A>
     ) {
         let config = self.config;
         let (z_tf_offset, z_bf_offset, z_top_offset_dif, z_bottom_offset_dif) = unsafe {
@@ -754,11 +696,13 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         let z_bottom_offset = z_lerp.mul_add(z_bottom_offset_dif, z_bf_offset);
 
         unsafe {
-            *self.top.get_unchecked_mut(block) =
-                z_vec.mul_add(z_top_offset, z_lerp.mul_add(top_base_dif_vec, tf_base_vec));
+            *self.top.get_unchecked_mut(block) = z_vec.mul_add(
+                z_top_offset,
+                z_lerp.mul_add(top_base_dif_vec, tf_base_vec)
+            );
             let bottom_base = z_vec.mul_add(
                 z_bottom_offset,
-                z_lerp.mul_add(bottom_base_dif_vec, bf_base_vec),
+                z_lerp.mul_add(bottom_base_dif_vec, bf_base_vec)
             );
             *self.dif.get_unchecked_mut(block) = bottom_base - *self.top.get_unchecked(block);
 
@@ -776,19 +720,13 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         y: usize,
         index: usize,
         state: &mut [f32],
-        dst: &mut [f32],
+        dst: &mut [f32]
     ) {
         let y_lerp = Simd::splat(unsafe {
-            self.grid_data.fade_factors[1]
-                .get_unchecked(y)
-                .assume_init()
+            self.grid_data.fade_factors[1].get_unchecked(y).assume_init()
         });
 
-        let num_blocks = if IS_TAIL {
-            NUM_BLOCKS
-        } else {
-            Self::MAX_BLOCKS
-        };
+        let num_blocks = if IS_TAIL { NUM_BLOCKS } else { Self::MAX_BLOCKS };
 
         for block in 0..num_blocks {
             let index = index + x + block * Simd::<f32, A>::LANES;
@@ -808,14 +746,11 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         y_lerp: Simd<f32, A>,
         index: usize,
         state: &mut [f32],
-        dst: &mut [f32],
+        dst: &mut [f32]
     ) {
         let access_mode = SimdAccessMode::from_u8(ACCESS_MODE);
         let output = unsafe {
-            y_lerp.mul_add(
-                *self.dif.get_unchecked(block),
-                *self.top.get_unchecked(block),
-            )
+            y_lerp.mul_add(*self.dif.get_unchecked(block), *self.top.get_unchecked(block))
         };
 
         // Initialize sample if it is the first and apply combiner algorithm
@@ -845,7 +780,9 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
             for i in 0..C::State::<A>::STATE_SIZE {
                 let offset = i * self.grid_data.total_size;
                 let index = index + offset;
-                unsafe { write_simd_rw(state, index, cur_state[i], self.config, access_mode) };
+                unsafe {
+                    write_simd_rw(state, index, cur_state[i], self.config, access_mode);
+                }
             }
         }
 
@@ -855,7 +792,9 @@ impl<'a, A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>
         }
 
         // Save the result.
-        unsafe { write_simd_rw(dst, index, result, self.config, access_mode) };
+        unsafe {
+            write_simd_rw(dst, index, result, self.config, access_mode);
+        }
 
         // Walk along the grid by accumulating interpolation components.
         unsafe {

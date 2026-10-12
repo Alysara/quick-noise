@@ -5,11 +5,14 @@ use crate::noise::generators::Perlin;
 use crate::noise::util::constants::{BYTE_SHUFFLE, GRAD_TABLE, HASH_PRIME, X_GRAD_ENCODING, Y_GRAD_ENCODING, Z_GRAD_ENCODING};
 
 impl BatchGenerator<3> for Perlin {
+    type GenConfig = ();
+
     #[inline(always)]
     fn sample_batch<A: Arch>(
         seed: u32,
         input: [Simd<f32, A>; 3],
         freq: [Simd<f32, A>; 3],
+        _gen_cfg: <Self as BatchGenerator<2>>::GenConfig
     ) -> Simd<f32, A> {
         // Constants.
         let six: Simd<f32, A> = Simd::splat(6.0);

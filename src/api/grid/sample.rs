@@ -26,7 +26,7 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>> GridNoise<D, C, G> {
         grid_config: &GridConfig<D>,
         noise_config: &NoiseConfig<D>,
         combiner_config: &C::Config,
-        gen_config: &G::GenConfig,
+        gen_cfg: &G::GenConfig,
         dst: &mut [f32],
     ) {
         let octaves = noise_config.num_grid_octaves();
@@ -70,7 +70,7 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>> GridNoise<D, C, G> {
         let state = arena.allocate(needed_state_size);
         let state = unsafe { state.assume_init_mut() };
         let f_config = *combiner_config;
-        let g_config = *gen_config;
+        let g_config = *gen_cfg;
 
         match (
             noise_config.initialize,

@@ -127,7 +127,7 @@ impl GridGenerator<2> for Simplex {
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         combiner: C::Config,
-        _generator_config: <Self as GridGenerator<2>>::GenConfig,
+        _gen_cfg: <Self as GridGenerator<2>>::GenConfig,
         state: &mut [f32],
         dst: &mut [f32]
     ) {
@@ -382,7 +382,8 @@ mod tests {
         let gain = Simplex::sample_batch::<StaticArch>(
             seed,
             [Simd::splat(px), Simd::splat(py)],
-            [Simd::splat(freq), Simd::splat(freq)]
+            [Simd::splat(freq), Simd::splat(freq)],
+            ()
         );
         gain.to_array()[0]
     }
@@ -399,7 +400,10 @@ mod tests {
     }
 
     fn check_reference(w: usize, h: usize, seed: i64, offset_x: f32, offset_y: f32, freq: f32) {
-        let grid = Grid::<2>::new(w, h).seed(seed).sample_position(offset_x as f64, offset_y as f64);
+        let grid = Grid::<2>
+            ::new(w, h)
+            .seed(seed)
+            .sample_position(offset_x as f64, offset_y as f64);
         let grid_seed = Random::mix_u64(seed as u64);
         let base_seed = Random::mix_u64_pair(grid_seed, 0xd5e7b3c94f8a1e6b);
         let octave_seed = gen_octave_seed([freq, freq], base_seed);
