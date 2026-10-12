@@ -1,8 +1,8 @@
-use simply_simd::{Arch, Simd};
+use simply_simd::{ Arch, Simd };
 
 use crate::api::batch::interface::BatchGenerator;
-use crate::noise::generators::{Cellular, DistanceFn};
-use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
+use crate::noise::generators::{ Cellular, DistanceFn };
+use crate::noise::util::constants::{ BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME };
 
 impl<F: DistanceFn> BatchGenerator<2> for Cellular<F> {
     type GenConfig = F::DistanceConfig;
@@ -72,10 +72,10 @@ impl<F: DistanceFn> BatchGenerator<2> for Cellular<F> {
         let y_dist_bl = ((hash_bl >> 9) | exp_bits).raw_cast::<f32>() + y_dist_lo;
         let y_dist_br = ((hash_br >> 9) | exp_bits).raw_cast::<f32>() - y_dist_hi;
 
-        let dist_tl = F::dist(x_dist_tl, F::modify_y(y_dist_tl, &gen_cfg), &gen_cfg);
-        let dist_tr = F::dist(x_dist_tr, F::modify_y(y_dist_tr, &gen_cfg), &gen_cfg);
-        let dist_bl = F::dist(x_dist_bl, F::modify_y(y_dist_bl, &gen_cfg), &gen_cfg);
-        let dist_br = F::dist(x_dist_br, F::modify_y(y_dist_br, &gen_cfg), &gen_cfg);
+        let dist_tl = distance::<A, F>([x_dist_tl, y_dist_tl], &gen_cfg);
+        let dist_tr = distance::<A, F>([x_dist_tr, y_dist_tr], &gen_cfg);
+        let dist_bl = distance::<A, F>([x_dist_bl, y_dist_bl], &gen_cfg);
+        let dist_br = distance::<A, F>([x_dist_br, y_dist_br], &gen_cfg);
 
         let mut min_dist = dist_tl.min(dist_tr).min(dist_bl).min(dist_br);
 
@@ -126,14 +126,14 @@ impl<F: DistanceFn> BatchGenerator<2> for Cellular<F> {
             let y_dist_bbr = ((hash_bbr >> 9) | exp_bits).raw_cast::<f32>() - y_dist_hi;
             let y_dist_brr = ((hash_brr >> 9) | exp_bits).raw_cast::<f32>() - y_dist_hi - one;
 
-            let dist_ttl = F::dist(x_dist_ttl, F::modify_y(y_dist_ttl, &gen_cfg), &gen_cfg);
-            let dist_tll = F::dist(x_dist_tll, F::modify_y(y_dist_tll, &gen_cfg), &gen_cfg);
-            let dist_ttr = F::dist(x_dist_ttr, F::modify_y(y_dist_ttr, &gen_cfg), &gen_cfg);
-            let dist_trr = F::dist(x_dist_trr, F::modify_y(y_dist_trr, &gen_cfg), &gen_cfg);
-            let dist_bbl = F::dist(x_dist_bbl, F::modify_y(y_dist_bbl, &gen_cfg), &gen_cfg);
-            let dist_bll = F::dist(x_dist_bll, F::modify_y(y_dist_bll, &gen_cfg), &gen_cfg);
-            let dist_bbr = F::dist(x_dist_bbr, F::modify_y(y_dist_bbr, &gen_cfg), &gen_cfg);
-            let dist_brr = F::dist(x_dist_brr, F::modify_y(y_dist_brr, &gen_cfg), &gen_cfg);
+            let dist_ttl = distance::<A, F>([x_dist_ttl, y_dist_ttl], &gen_cfg);
+            let dist_tll = distance::<A, F>([x_dist_tll, y_dist_tll], &gen_cfg);
+            let dist_ttr = distance::<A, F>([x_dist_ttr, y_dist_ttr], &gen_cfg);
+            let dist_trr = distance::<A, F>([x_dist_trr, y_dist_trr], &gen_cfg);
+            let dist_bbl = distance::<A, F>([x_dist_bbl, y_dist_bbl], &gen_cfg);
+            let dist_bll = distance::<A, F>([x_dist_bll, y_dist_bll], &gen_cfg);
+            let dist_bbr = distance::<A, F>([x_dist_bbr, y_dist_bbr], &gen_cfg);
+            let dist_brr = distance::<A, F>([x_dist_brr, y_dist_brr], &gen_cfg);
 
             let outer_min = dist_ttl
                 .min(dist_tll)
@@ -149,4 +149,15 @@ impl<F: DistanceFn> BatchGenerator<2> for Cellular<F> {
 
         F::finalize(min_dist, &gen_cfg)
     }
+}
+
+fn distance<A: Arch, F: DistanceFn>(
+    deltas: [Simd<f32, A>; 2],
+    dst_cfg: &F::DistanceConfig
+) -> Simd<f32, A> {
+    F::dist([
+        F::modify_delta(deltas[0], dst_cfg), 
+        F::modify_delta(deltas[1], dst_cfg)], 
+        dst_cfg
+    )
 }

@@ -1,8 +1,8 @@
-use simply_simd::{Arch, Simd};
+use simply_simd::{ Arch, Simd };
 
 use crate::api::batch::interface::BatchGenerator;
-use crate::noise::generators::{Cellular, DistanceFn};
-use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
+use crate::noise::generators::{ Cellular, DistanceFn };
+use crate::noise::util::constants::{ BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME };
 
 impl<F: DistanceFn> BatchGenerator<3> for Cellular<F> {
     type GenConfig = F::DistanceConfig;
@@ -12,7 +12,7 @@ impl<F: DistanceFn> BatchGenerator<3> for Cellular<F> {
         seed: u32,
         input: [Simd<f32, A>; 3],
         freq: [Simd<f32, A>; 3],
-        _gen_cfg: <Self as BatchGenerator<2>>::GenConfig
+        gen_cfg: <Self as BatchGenerator<3>>::GenConfig
     ) -> Simd<f32, A> {
         // Constants.
         let three_halves: Simd<f32, A> = Simd::splat(1.5);
@@ -47,7 +47,7 @@ impl<F: DistanceFn> BatchGenerator<3> for Cellular<F> {
         let close_edge_lo = x_dist_lo.min(y_dist_lo).min(z_dist_lo) + Simd::splat(2.0);
         let close_edge_hi = x_dist_hi.min(y_dist_hi).min(z_dist_hi) - one;
         let closest_edge_dist = close_edge_lo.min(close_edge_hi);
-        let threshold = closest_edge_dist * closest_edge_dist;
+        let threshold = F::gate_val(closest_edge_dist, &gen_cfg);
 
         // Hash: 37
         let x1: Simd<u32, A> = x_grid_lo.cast_int_trunc().raw_cast() * channel_seed;
@@ -101,38 +101,14 @@ impl<F: DistanceFn> BatchGenerator<3> for Cellular<F> {
         let z_dist_blb = (((hash_blb << 12) & hash_mask) | exp_bits).raw_cast::<f32>() + z_dist_lo;
         let z_dist_brb = (((hash_brb << 12) & hash_mask) | exp_bits).raw_cast::<f32>() - z_dist_hi;
 
-        let dist_tlf = x_dist_tlf.mul_add(
-            x_dist_tlf,
-            y_dist_tlf.mul_add(y_dist_tlf, z_dist_tlf * z_dist_tlf),
-        );
-        let dist_trf = x_dist_trf.mul_add(
-            x_dist_trf,
-            y_dist_trf.mul_add(y_dist_trf, z_dist_trf * z_dist_trf),
-        );
-        let dist_blf = x_dist_blf.mul_add(
-            x_dist_blf,
-            y_dist_blf.mul_add(y_dist_blf, z_dist_blf * z_dist_blf),
-        );
-        let dist_brf = x_dist_brf.mul_add(
-            x_dist_brf,
-            y_dist_brf.mul_add(y_dist_brf, z_dist_brf * z_dist_brf),
-        );
-        let dist_tlb = x_dist_tlb.mul_add(
-            x_dist_tlb,
-            y_dist_tlb.mul_add(y_dist_tlb, z_dist_tlb * z_dist_tlb),
-        );
-        let dist_trb = x_dist_trb.mul_add(
-            x_dist_trb,
-            y_dist_trb.mul_add(y_dist_trb, z_dist_trb * z_dist_trb),
-        );
-        let dist_blb = x_dist_blb.mul_add(
-            x_dist_blb,
-            y_dist_blb.mul_add(y_dist_blb, z_dist_blb * z_dist_blb),
-        );
-        let dist_brb = x_dist_brb.mul_add(
-            x_dist_brb,
-            y_dist_brb.mul_add(y_dist_brb, z_dist_brb * z_dist_brb),
-        );
+        let dist_tlf = distance::<A, F>([x_dist_tlf, y_dist_tlf, z_dist_tlf], &gen_cfg);
+        let dist_trf = distance::<A, F>([x_dist_trf, y_dist_trf, z_dist_trf], &gen_cfg);
+        let dist_blf = distance::<A, F>([x_dist_blf, y_dist_blf, z_dist_blf], &gen_cfg);
+        let dist_brf = distance::<A, F>([x_dist_brf, y_dist_brf, z_dist_brf], &gen_cfg);
+        let dist_tlb = distance::<A, F>([x_dist_tlb, y_dist_tlb, z_dist_tlb], &gen_cfg);
+        let dist_trb = distance::<A, F>([x_dist_trb, y_dist_trb, z_dist_trb], &gen_cfg);
+        let dist_blb = distance::<A, F>([x_dist_blb, y_dist_blb, z_dist_blb], &gen_cfg);
+        let dist_brb = distance::<A, F>([x_dist_brb, y_dist_brb, z_dist_brb], &gen_cfg);
 
         let mut min_dist = dist_tlf
             .min(dist_trf)
@@ -293,102 +269,30 @@ impl<F: DistanceFn> BatchGenerator<3> for Cellular<F> {
             let z_dist_brrb =
                 (((hash_brrb << 12) & hash_mask) | exp_bits).raw_cast::<f32>() - z_dist_hi - one;
 
-            let dist_tlff = x_dist_tlff.mul_add(
-                x_dist_tlff,
-                y_dist_tlff.mul_add(y_dist_tlff, z_dist_tlff * z_dist_tlff),
-            );
-            let dist_ttlf = x_dist_ttlf.mul_add(
-                x_dist_ttlf,
-                y_dist_ttlf.mul_add(y_dist_ttlf, z_dist_ttlf * z_dist_ttlf),
-            );
-            let dist_tllf = x_dist_tllf.mul_add(
-                x_dist_tllf,
-                y_dist_tllf.mul_add(y_dist_tllf, z_dist_tllf * z_dist_tllf),
-            );
-            let dist_trff = x_dist_trff.mul_add(
-                x_dist_trff,
-                y_dist_trff.mul_add(y_dist_trff, z_dist_trff * z_dist_trff),
-            );
-            let dist_ttrf = x_dist_ttrf.mul_add(
-                x_dist_ttrf,
-                y_dist_ttrf.mul_add(y_dist_ttrf, z_dist_ttrf * z_dist_ttrf),
-            );
-            let dist_trrf = x_dist_trrf.mul_add(
-                x_dist_trrf,
-                y_dist_trrf.mul_add(y_dist_trrf, z_dist_trrf * z_dist_trrf),
-            );
-            let dist_blff = x_dist_blff.mul_add(
-                x_dist_blff,
-                y_dist_blff.mul_add(y_dist_blff, z_dist_blff * z_dist_blff),
-            );
-            let dist_bblf = x_dist_bblf.mul_add(
-                x_dist_bblf,
-                y_dist_bblf.mul_add(y_dist_bblf, z_dist_bblf * z_dist_bblf),
-            );
-            let dist_bllf = x_dist_bllf.mul_add(
-                x_dist_bllf,
-                y_dist_bllf.mul_add(y_dist_bllf, z_dist_bllf * z_dist_bllf),
-            );
-            let dist_brff = x_dist_brff.mul_add(
-                x_dist_brff,
-                y_dist_brff.mul_add(y_dist_brff, z_dist_brff * z_dist_brff),
-            );
-            let dist_bbrf = x_dist_bbrf.mul_add(
-                x_dist_bbrf,
-                y_dist_bbrf.mul_add(y_dist_bbrf, z_dist_bbrf * z_dist_bbrf),
-            );
-            let dist_brrf = x_dist_brrf.mul_add(
-                x_dist_brrf,
-                y_dist_brrf.mul_add(y_dist_brrf, z_dist_brrf * z_dist_brrf),
-            );
-            let dist_tlbb = x_dist_tlbb.mul_add(
-                x_dist_tlbb,
-                y_dist_tlbb.mul_add(y_dist_tlbb, z_dist_tlbb * z_dist_tlbb),
-            );
-            let dist_ttlb = x_dist_ttlb.mul_add(
-                x_dist_ttlb,
-                y_dist_ttlb.mul_add(y_dist_ttlb, z_dist_ttlb * z_dist_ttlb),
-            );
-            let dist_tllb = x_dist_tllb.mul_add(
-                x_dist_tllb,
-                y_dist_tllb.mul_add(y_dist_tllb, z_dist_tllb * z_dist_tllb),
-            );
-            let dist_trbb = x_dist_trbb.mul_add(
-                x_dist_trbb,
-                y_dist_trbb.mul_add(y_dist_trbb, z_dist_trbb * z_dist_trbb),
-            );
-            let dist_ttrb = x_dist_ttrb.mul_add(
-                x_dist_ttrb,
-                y_dist_ttrb.mul_add(y_dist_ttrb, z_dist_ttrb * z_dist_ttrb),
-            );
-            let dist_trrb = x_dist_trrb.mul_add(
-                x_dist_trrb,
-                y_dist_trrb.mul_add(y_dist_trrb, z_dist_trrb * z_dist_trrb),
-            );
-            let dist_blbb = x_dist_blbb.mul_add(
-                x_dist_blbb,
-                y_dist_blbb.mul_add(y_dist_blbb, z_dist_blbb * z_dist_blbb),
-            );
-            let dist_bblb = x_dist_bblb.mul_add(
-                x_dist_bblb,
-                y_dist_bblb.mul_add(y_dist_bblb, z_dist_bblb * z_dist_bblb),
-            );
-            let dist_bllb = x_dist_bllb.mul_add(
-                x_dist_bllb,
-                y_dist_bllb.mul_add(y_dist_bllb, z_dist_bllb * z_dist_bllb),
-            );
-            let dist_brbb = x_dist_brbb.mul_add(
-                x_dist_brbb,
-                y_dist_brbb.mul_add(y_dist_brbb, z_dist_brbb * z_dist_brbb),
-            );
-            let dist_bbrb = x_dist_bbrb.mul_add(
-                x_dist_bbrb,
-                y_dist_bbrb.mul_add(y_dist_bbrb, z_dist_bbrb * z_dist_bbrb),
-            );
-            let dist_brrb = x_dist_brrb.mul_add(
-                x_dist_brrb,
-                y_dist_brrb.mul_add(y_dist_brrb, z_dist_brrb * z_dist_brrb),
-            );
+            let dist_tlff = distance::<A, F>([x_dist_tlff, y_dist_tlff, z_dist_tlff], &gen_cfg);
+            let dist_ttlf = distance::<A, F>([x_dist_ttlf, y_dist_ttlf, z_dist_ttlf], &gen_cfg);
+            let dist_tllf = distance::<A, F>([x_dist_tllf, y_dist_tllf, z_dist_tllf], &gen_cfg);
+            let dist_trff = distance::<A, F>([x_dist_trff, y_dist_trff, z_dist_trff], &gen_cfg);
+            let dist_ttrf = distance::<A, F>([x_dist_ttrf, y_dist_ttrf, z_dist_ttrf], &gen_cfg);
+            let dist_trrf = distance::<A, F>([x_dist_trrf, y_dist_trrf, z_dist_trrf], &gen_cfg);
+            let dist_blff = distance::<A, F>([x_dist_blff, y_dist_blff, z_dist_blff], &gen_cfg);
+            let dist_bblf = distance::<A, F>([x_dist_bblf, y_dist_bblf, z_dist_bblf], &gen_cfg);
+            let dist_bllf = distance::<A, F>([x_dist_bllf, y_dist_bllf, z_dist_bllf], &gen_cfg);
+            let dist_brff = distance::<A, F>([x_dist_brff, y_dist_brff, z_dist_brff], &gen_cfg);
+            let dist_bbrf = distance::<A, F>([x_dist_bbrf, y_dist_bbrf, z_dist_bbrf], &gen_cfg);
+            let dist_brrf = distance::<A, F>([x_dist_brrf, y_dist_brrf, z_dist_brrf], &gen_cfg);
+            let dist_tlbb = distance::<A, F>([x_dist_tlbb, y_dist_tlbb, z_dist_tlbb], &gen_cfg);
+            let dist_ttlb = distance::<A, F>([x_dist_ttlb, y_dist_ttlb, z_dist_ttlb], &gen_cfg);
+            let dist_tllb = distance::<A, F>([x_dist_tllb, y_dist_tllb, z_dist_tllb], &gen_cfg);
+            let dist_trbb = distance::<A, F>([x_dist_trbb, y_dist_trbb, z_dist_trbb], &gen_cfg);
+            let dist_ttrb = distance::<A, F>([x_dist_ttrb, y_dist_ttrb, z_dist_ttrb], &gen_cfg);
+            let dist_trrb = distance::<A, F>([x_dist_trrb, y_dist_trrb, z_dist_trrb], &gen_cfg);
+            let dist_blbb = distance::<A, F>([x_dist_blbb, y_dist_blbb, z_dist_blbb], &gen_cfg);
+            let dist_bblb = distance::<A, F>([x_dist_bblb, y_dist_bblb, z_dist_bblb], &gen_cfg);
+            let dist_bllb = distance::<A, F>([x_dist_bllb, y_dist_bllb, z_dist_bllb], &gen_cfg);
+            let dist_brbb = distance::<A, F>([x_dist_brbb, y_dist_brbb, z_dist_brbb], &gen_cfg);
+            let dist_bbrb = distance::<A, F>([x_dist_bbrb, y_dist_bbrb, z_dist_bbrb], &gen_cfg);
+            let dist_brrb = distance::<A, F>([x_dist_brrb, y_dist_brrb, z_dist_brrb], &gen_cfg);
 
             let outer_min = dist_tlff
                 .min(dist_ttlf)
@@ -418,7 +322,21 @@ impl<F: DistanceFn> BatchGenerator<3> for Cellular<F> {
             min_dist = min_dist.min(outer_min);
         }
 
-        // Sqrt: 1
-        min_dist.sqrt()
+        F::finalize(min_dist, &gen_cfg)
     }
+}
+
+#[inline(always)]
+fn distance<A: Arch, F: DistanceFn>(
+    deltas: [Simd<f32, A>; 3],
+    gen_cfg: &F::DistanceConfig
+) -> Simd<f32, A> {
+    F::dist(
+        [
+            F::modify_delta(deltas[0], gen_cfg),
+            F::modify_delta(deltas[1], gen_cfg),
+            F::modify_delta(deltas[2], gen_cfg),
+        ],
+        gen_cfg
+    )
 }
