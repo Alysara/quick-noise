@@ -6,7 +6,7 @@ use crate::api::grid::builder::GridNoiseBuilder;
 use crate::api::grid::octaves_builder::OctaveGridNoiseBuilder;
 use crate::api::octave::Octave;
 use crate::math::random::Random;
-use crate::simd::{Arch, StaticArch};
+use crate::simd::{ Arch, StaticArch };
 
 /// Handles raw parameters for grid noise generators
 #[derive(Copy, Clone, PartialEq, Debug)]
@@ -42,9 +42,9 @@ pub trait GridGenerator<const D: usize>: Default + Copy + Clone + PartialEq {
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<D>,
         combiner_config: C::Config,
-        generator_config: Self::GenConfig,
+        gen_cfg: Self::GenConfig,
         state: &mut [f32],
-        dst: &mut [f32],
+        dst: &mut [f32]
     );
 }
 
@@ -110,8 +110,8 @@ impl<A: Arch> Grid<2, A> {
     /// `0.0`: y
     pub fn grid_position(mut self, x: f64, y: f64) -> Self {
         self.config.position = [
-            x * self.config.grid_size[0] as f64,
-            y * self.config.grid_size[1] as f64,
+            x * (self.config.grid_size[0] as f64),
+            y * (self.config.grid_size[1] as f64),
         ];
         self
     }
@@ -169,9 +169,9 @@ impl<A: Arch> Grid<3, A> {
     /// `0.0`: z
     pub fn grid_position(mut self, x: f64, y: f64, z: f64) -> Self {
         self.config.position = [
-            x * self.config.grid_size[0] as f64,
-            y * self.config.grid_size[1] as f64,
-            z * self.config.grid_size[2] as f64,
+            x * (self.config.grid_size[0] as f64),
+            y * (self.config.grid_size[1] as f64),
+            z * (self.config.grid_size[2] as f64),
         ];
         self
     }
@@ -228,7 +228,7 @@ impl<const D: usize, A: Arch> Grid<D, A> {
     /// - `G`: The algorithm to sample noise with.
     pub fn builder_with_octaves<'a, C: Combiner, G: GridGenerator<D>>(
         &self,
-        octave_list: &'a [Octave<D>],
+        octave_list: &'a [Octave<D>]
     ) -> OctaveGridNoiseBuilder<'a, D, C, G, A> {
         OctaveGridNoiseBuilder::new(self.config, octave_list)
     }

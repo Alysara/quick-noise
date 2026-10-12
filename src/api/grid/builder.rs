@@ -1,22 +1,26 @@
 use std::marker::PhantomData;
 
 use crate::api::configs::*;
-use crate::api::grid::interface::{GridGenerator, GridNoise};
+use crate::api::grid::interface::{ GridGenerator, GridNoise };
 use crate::api::parameters::*;
 use crate::math::random::Random;
 use crate::simd::register::iters::IntoSimdIterator;
-use crate::simd::{Arch, StaticArch};
-use crate::{Combiner, HybridMulti, PingPong, Ridged, Terrace};
+use crate::simd::{ Arch, StaticArch };
+use crate::{ Combiner, HybridMulti, PingPong, Ridged, Terrace };
 
 /// A struct for creating noise on a uniform grid.
 /// The most performant way to generate noise.
 #[derive(Default, Copy, Clone)]
-pub struct GridNoiseBuilder<const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch = StaticArch>
-{
+pub struct GridNoiseBuilder<
+    const D: usize,
+    C: Combiner,
+    G: GridGenerator<D>,
+    A: Arch = StaticArch
+> {
     grid_config: GridConfig<D>,
     noise_config: NoiseConfig<D>,
     combiner_config: C::Config,
-    generator_config: G::GenConfig,
+    gen_cfg: G::GenConfig,
     _noise_type: PhantomData<G>,
     _arch: PhantomData<A>,
 }
@@ -47,8 +51,8 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch> GridNoiseBuilder
             &self.grid_config,
             &self.noise_config,
             &self.combiner_config,
-            &self.generator_config,
-            result.as_mut_slice(),
+            &self.gen_cfg,
+            result.as_mut_slice()
         );
         result
     });
@@ -58,8 +62,8 @@ impl<const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch> GridNoiseBuilder
             &self.grid_config,
             &self.noise_config,
             &self.combiner_config,
-            &self.generator_config,
-            result,
+            &self.gen_cfg,
+            result
         );
     });
 

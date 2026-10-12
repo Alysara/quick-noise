@@ -1,19 +1,24 @@
 use std::mem::MaybeUninit;
 
-use simply_simd::{Arch, Simd, enable_targets};
+use simply_simd::{ Arch, Simd, enable_targets };
 
 use crate::api::grid::interface::GridNoiseParams;
 use crate::noise::combiners::{ Combiner, CombinerState };
-use crate::noise::generators::{DistanceFn};
+use crate::noise::generators::DistanceFn;
 use crate::noise::util::grid_data::CellularGridData;
-use crate::noise::util::constants::{BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME};
+use crate::noise::util::constants::{ BYTE_SHUFFLE, CELLULAR_EXP_MASK, HASH_MASK, HASH_PRIME };
 use crate::noise::util::grid_helpers::{
-    Arena, ArenaBuffer, MaybeUninitSliceSimdExt, maybe_tail_load, maybe_tail_store, pad_grid_size,
-    validate_grid_size, validate_state_size, simd_rem_euclid_i32,
+    Arena,
+    ArenaBuffer,
+    MaybeUninitSliceSimdExt,
+    maybe_tail_load,
+    maybe_tail_store,
+    pad_grid_size,
+    validate_grid_size,
+    validate_state_size,
+    simd_rem_euclid_i32,
 };
-use crate::{
-    Cellular, GridGenerator
-};
+use crate::{ Cellular, GridGenerator };
 
 /// Candidate offsets for the 12 candidates (4 base + 8 ring). The ring is
 /// grouped by bounding edge and stay aligned with the near/far gate
@@ -37,20 +42,32 @@ const NEIGHBORS_12: [(i32, i32); 12] = [
 ];
 
 struct RowWindow {
-    top: *mut f32,
+    fir: *mut f32,
     sec: *mut f32,
     thi: *mut f32,
-    bot: *mut f32,
+    fou: *mut f32,
     width: usize,
 }
 
 impl RowWindow {
     fn new(arena: &mut Arena, width: usize) -> Self {
         Self {
-            top: arena.allocate::<f32>(width * 2).as_mut_ptr().cast(),
-            sec: arena.allocate::<f32>(width * 2).as_mut_ptr().cast(),
-            thi: arena.allocate::<f32>(width * 2).as_mut_ptr().cast(),
-            bot: arena.allocate::<f32>(width * 2).as_mut_ptr().cast(),
+            fir: arena
+                .allocate::<f32>(width * 2)
+                .as_mut_ptr()
+                .cast(),
+            sec: arena
+                .allocate::<f32>(width * 2)
+                .as_mut_ptr()
+                .cast(),
+            thi: arena
+                .allocate::<f32>(width * 2)
+                .as_mut_ptr()
+                .cast(),
+            fou: arena
+                .allocate::<f32>(width * 2)
+                .as_mut_ptr()
+                .cast(),
             width,
         }
     }
@@ -93,8 +110,8 @@ impl RowWindow {
         }
     }
 
-    fn top(&self) -> &[(f32, f32)] {
-        unsafe { std::slice::from_raw_parts(self.top.cast::<(f32, f32)>(), self.width) }
+    fn fir(&self) -> &[(f32, f32)] {
+        unsafe { std::slice::from_raw_parts(self.fir.cast::<(f32, f32)>(), self.width) }
     }
 
     fn sec(&self) -> &[(f32, f32)] {
@@ -105,12 +122,12 @@ impl RowWindow {
         unsafe { std::slice::from_raw_parts(self.thi.cast::<(f32, f32)>(), self.width) }
     }
 
-    fn bot(&self) -> &[(f32, f32)] {
-        unsafe { std::slice::from_raw_parts(self.bot.cast::<(f32, f32)>(), self.width) }
+    fn fou(&self) -> &[(f32, f32)] {
+        unsafe { std::slice::from_raw_parts(self.fou.cast::<(f32, f32)>(), self.width) }
     }
 
     fn top_mut(&mut self) -> &mut [(f32, f32)] {
-        unsafe { std::slice::from_raw_parts_mut(self.top.cast::<(f32, f32)>(), self.width) }
+        unsafe { std::slice::from_raw_parts_mut(self.fir.cast::<(f32, f32)>(), self.width) }
     }
 
     fn sec_mut(&mut self) -> &mut [(f32, f32)] {
@@ -122,16 +139,16 @@ impl RowWindow {
     }
 
     fn bot_mut(&mut self) -> &mut [(f32, f32)] {
-        unsafe { std::slice::from_raw_parts_mut(self.bot.cast::<(f32, f32)>(), self.width) }
+        unsafe { std::slice::from_raw_parts_mut(self.fou.cast::<(f32, f32)>(), self.width) }
     }
 
     #[inline(always)]
     fn swap(&mut self) {
-        let tmp = self.top;
-        self.top = self.sec;
+        let tmp = self.fir;
+        self.fir = self.sec;
         self.sec = self.thi;
-        self.thi = self.bot;
-        self.bot = tmp;
+        self.thi = self.fou;
+        self.fou = tmp;
     }
 }
 
@@ -158,8 +175,9 @@ fn hash_cell_y<A: Arch>(y: u32, seed: u32) -> u32 {
 fn hash_cell_with_y<A: Arch>(x: u32, y_shuf: u32, seed: u32) -> u32 {
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
     let prime = Simd::<u32, A>::splat(HASH_PRIME);
-    let x_shuf = (Simd::<u32, A>::splat(x.wrapping_mul(seed)).permute_8(shuffle_indices) ^ prime)
-        .to_array()[0];
+    let x_shuf = (
+        Simd::<u32, A>::splat(x.wrapping_mul(seed)).permute_8(shuffle_indices) ^ prime
+    ).to_array()[0];
     x_shuf.wrapping_mul(y_shuf) ^ x_shuf
 }
 
@@ -202,28 +220,24 @@ impl CellJitters {
     #[inline(always)]
     fn write<A: Arch>(
         &mut self,
-        top: &[(f32, f32)],
+        fir: &[(f32, f32)],
         sec: &[(f32, f32)],
         thi: &[(f32, f32)],
-        bot: &[(f32, f32)],
-        x_it: usize,
+        fou: &[(f32, f32)],
+        x_it: usize
     ) {
         for (i, &(ox, oy)) in NEIGHBORS_12.iter().enumerate() {
             let row: &[(f32, f32)] = match oy {
-                -1 => top,
+                -1 => fir,
                 0 => sec,
                 1 => thi,
-                2 => bot,
+                2 => fou,
                 _ => unreachable!(),
             };
             let (jx, jy) = row[x_it + ((ox + 1) as usize)];
             unsafe {
-                self.parts
-                    .add(i * 2)
-                    .write(MaybeUninit::new(jx + (ox as f32)));
-                self.parts
-                    .add(i * 2 + 1)
-                    .write(MaybeUninit::new(jy + (oy as f32)));
+                self.parts.add(i * 2).write(MaybeUninit::new(jx + (ox as f32)));
+                self.parts.add(i * 2 + 1).write(MaybeUninit::new(jy + (oy as f32)));
             }
         }
     }
@@ -231,13 +245,13 @@ impl CellJitters {
 
 #[enable_targets(A)]
 impl<F: DistanceFn> GridGenerator<2> for Cellular<F> {
-    type GenConfig = F;
+    type GenConfig = F::DistanceConfig;
     fn sample_grid<A: Arch, C: Combiner, const INIT: bool, const FINAL: bool>(
         params: GridNoiseParams<2>,
         combiner: C::Config,
-        generator_config: <Self as GridGenerator<2>>::GenConfig,
+        gen_cfg: <Self as GridGenerator<2>>::GenConfig,
         state: &mut [f32],
-        dst: &mut [f32],
+        dst: &mut [f32]
     ) {
         validate_grid_size(params.grid_size, dst.len());
         validate_state_size::<C, A, _>(params.grid_size, state.len());
@@ -255,7 +269,7 @@ impl<F: DistanceFn> GridGenerator<2> for Cellular<F> {
         let mut window = RowWindow::new(&mut arena, row_len);
         let mut cell_jitters = CellJitters::new(&mut arena);
 
-        // Pre-fill the 4 rows: top (y-1), sec (y=0), thi (y=1), bot (y=2)
+        // Pre-fill the 4 rows: fir (y-1), sec (y=0), thi (y=1), fou (y=2)
         let lx_offset = grid_data.grid_start[0] - 1;
         RowWindow::fill_row::<A>(
             &params,
@@ -288,20 +302,22 @@ impl<F: DistanceFn> GridGenerator<2> for Cellular<F> {
 
         let mut y_idx = 0;
         for y_it in 0..grid_data.num_loops[1] {
-            let y_next_idx =
-                unsafe { grid_data.grid_indices[1].get_unchecked(y_it).assume_init() as usize };
+            let y_next_idx = unsafe {
+                grid_data.grid_indices[1].get_unchecked(y_it).assume_init() as usize
+            };
 
             let mut x_idx = 0;
             for x_it in 0..grid_data.num_loops[0] {
-                let x_next_idx =
-                    unsafe { grid_data.grid_indices[0].get_unchecked(x_it).assume_init() as usize };
+                let x_next_idx = unsafe {
+                    grid_data.grid_indices[0].get_unchecked(x_it).assume_init() as usize
+                };
 
                 cell_jitters.write::<A>(
-                    window.top(),
+                    window.fir(),
                     window.sec(),
                     window.thi(),
-                    window.bot(),
-                    x_it,
+                    window.fou(),
+                    x_it
                 );
 
                 fill_cell::<A, C, F, INIT, FINAL>(
@@ -314,15 +330,16 @@ impl<F: DistanceFn> GridGenerator<2> for Cellular<F> {
                     dst,
                     state,
                     &combiner,
+                    gen_cfg
                 );
 
                 x_idx = x_next_idx;
             }
 
-            // Swap rows: sec->top, thi->sec, bot->thi, old top->bot
+            // Swap rows: sec->fir, thi->sec, fou->thi, old fir->fou
             window.swap();
 
-            // Fill the new bot row
+            // Fill the new fou row
             RowWindow::fill_row::<A>(
                 &params,
                 &grid_data,
@@ -347,6 +364,7 @@ fn fill_cell<A: Arch, C: Combiner, F: DistanceFn, const INIT: bool, const FINAL:
     dst: &mut [f32],
     state: &mut [f32],
     combiner_config: &C::Config,
+    dst_cfg: F::DistanceConfig
 ) {
     let lanes = Simd::<f32, A>::LANES;
     let row_width = grid_data.grid_size[0];
@@ -357,111 +375,61 @@ fn fill_cell<A: Arch, C: Combiner, F: DistanceFn, const INIT: bool, const FINAL:
         let sy = unsafe { grid_data.distances[1].get_unchecked(y).assume_init() };
         let row_start = y * row_width;
 
-        // `(sy - jy)` is identical for every block in this cell segment,
-        // so they are computed once per row instead of once per block.
-        let mut dy: [MaybeUninit<Simd<f32, A>>; 12] =
-            std::array::from_fn(|_| MaybeUninit::uninit());
-        for c in 0..12 {
+        let dy_mod: [MaybeUninit<Simd<f32, A>>; 12] = std::array::from_fn(|c| {
             let jy = unsafe { (*jit.parts.add(c * 2 + 1)).assume_init() };
-            let dy_ = Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy);
-            dy[c].write(dy_);
+            let dy = Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy);
+            MaybeUninit::new(F::per_row_y::<A>(dy, &dst_cfg))
+        });
+
+        let mut index = x_idx;
+        while index + lanes <= x_next {
+            fill_row_block::<A, C, F, INIT, FINAL, false>(
+                grid_data,
+                jit,
+                &dy_mod,
+                weight_vec,
+                sy,
+                row_start,
+                x_next,
+                index,
+                dst,
+                state,
+                combiner_config,
+                dst_cfg
+            );
+            index += lanes;
         }
-        let dy = &dy;
-
-        match F {
-            F::Euclidean => {   
-                let dysq: [MaybeUninit<Simd<f32, A>>; 12] = std::array::from_fn(|c| {
-                    let dy = unsafe { *dy[c].assume_init_ref() };
-                    MaybeUninit::new(dy * dy)
-                });
-                let mut index = x_idx;
-                while index + lanes <= x_next {
-                    fill_block::<A, C, INIT, FINAL, false>(
-                        grid_data,
-                        jit,
-                        &dysq,
-                        weight_vec,
-                        sy,
-                        row_start,
-                        x_next,
-                        index,
-                        dst,
-                        state,
-                        combiner_config,
-                    );
-                    index += lanes;
-                }
-                if index < x_next {
-                    fill_block::<A, C, INIT, FINAL, true>(
-                        grid_data,
-                        jit,
-                        &dysq,
-                        weight_vec,
-                        sy,
-                        row_start,
-                        x_next,
-                        index,
-                        dst,
-                        state,
-                        combiner_config,
-                    );
-                }
-            }
-
-            F::EuclideanSquared => {
-                let dysq: [MaybeUninit<Simd<f32, A>>; 12] = std::array::from_fn(|c| {
-                    let dy = unsafe { *dy[c].assume_init_ref() };
-                    MaybeUninit::new(dy * dy)
-                });
-                let mut index = x_idx;
-                while index + lanes <= x_next {
-                    fill_block::<A, C, INIT, FINAL, false>(
-                        grid_data,
-                        jit,
-                        &dysq,
-                        weight_vec,
-                        sy,
-                        row_start,
-                        x_next,
-                        index,
-                        dst,
-                        state,
-                        combiner_config,
-                    );
-                    index += lanes;
-                }
-                if index < x_next {
-                    fill_block::<A, C, INIT, FINAL, true>(
-                        grid_data,
-                        jit,
-                        &dysq,
-                        weight_vec,
-                        sy,
-                        row_start,
-                        x_next,
-                        index,
-                        dst,
-                        state,
-                        combiner_config,
-                    );
-                }
-            }
+        if index < x_next {
+            fill_row_block::<A, C, F, INIT, FINAL, true>(
+                grid_data,
+                jit,
+                &dy_mod,
+                weight_vec,
+                sy,
+                row_start,
+                x_next,
+                index,
+                dst,
+                state,
+                combiner_config,
+                dst_cfg
+            );
         }
-
     }
 }
 
 #[inline(always)]
-fn fill_block<
+fn fill_row_block<
     A: Arch,
     C: Combiner,
+    F: DistanceFn,
     const INIT: bool,
     const FINAL: bool,
-    const IS_TAIL: bool,
+    const IS_TAIL: bool
 >(
     grid_data: &CellularGridData<2>,
     jit: &CellJitters,
-    dysq: &[MaybeUninit<Simd<f32, A>>; 12],
+    dy_mod: &[MaybeUninit<Simd<f32, A>>; 12],
     weight_vec: Simd<f32, A>,
     sy: f32,
     row_start: usize,
@@ -470,23 +438,20 @@ fn fill_block<
     dst: &mut [f32],
     state: &mut [f32],
     combiner_config: &C::Config,
+    dst_cfg: F::DistanceConfig
 ) {
-    let lanes = if IS_TAIL {
-        x_next - index
-    } else {
-        Simd::<f32, A>::LANES
-    };
+    let lanes = if IS_TAIL { x_next - index } else { Simd::<f32, A>::LANES };
     let sample_start = row_start + index;
     let sample_end = sample_start + lanes;
 
     let sx: Simd<f32, A> = unsafe { grid_data.distances[0].load_simd(index) };
 
-    let mut min_sq = Simd::<f32, A>::splat(f32::MAX);
+    let mut min = Simd::<f32, A>::splat(f32::MAX);
     for c in 0..4 {
         let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
-        let dy_sq = unsafe { *dysq[c].assume_init_ref() };
+        let dy = unsafe { *dy_mod[c].assume_init_ref() };
         let dx = sx - jx;
-        min_sq = min_sq.min(dx.mul_add(dx, dy_sq));
+        min = min.min(F::dist(dx, dy, &dst_cfg));
     }
 
     let x_edge_lo = sx + Simd::<f32, A>::splat(0.5);
@@ -496,34 +461,35 @@ fn fill_block<
 
     let near_sq = {
         let edge = x_edge_lo.min(y_edge_lo);
-        edge * edge
+        F::gate_val(edge, &dst_cfg)
     };
     let far_sq = {
         let edge = x_edge_hi.min(y_edge_hi);
-        edge * edge
+        F::gate_val(edge, &dst_cfg)
     };
-    let any_near = min_sq.simd_gt(near_sq).to_bits() != 0;
-    let any_far = min_sq.simd_gt(far_sq).to_bits() != 0;
+
+    let any_near = min.simd_gt(near_sq).to_bits() != 0;
+    let any_far = min.simd_gt(far_sq).to_bits() != 0;
 
     if any_near {
         for c in 4..8 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
-            let dy_sq = unsafe { *dysq[c].assume_init_ref() };
+            let dy = unsafe { *dy_mod[c].assume_init_ref() };
             let dx = sx - jx;
-            min_sq = min_sq.min(dx.mul_add(dx, dy_sq));
+            min = min.min(F::dist(dx, dy, &dst_cfg));
         }
     }
 
     if any_far {
         for c in 8..12 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
-            let dy_sq = unsafe { *dysq[c].assume_init_ref() };
+            let dy = unsafe { *dy_mod[c].assume_init_ref() };
             let dx = sx - jx;
-            min_sq = min_sq.min(dx.mul_add(dx, dy_sq));
+            min = min.min(F::dist(dx, dy, &dst_cfg));
         }
     }
 
-    let raw_val = min_sq * weight_vec;
+    let raw_val = F::finalize(min, &dst_cfg) * weight_vec;
 
     let (cur_state, mut result) = if INIT {
         C::initialize_sample(combiner_config, raw_val)
@@ -546,7 +512,7 @@ fn fill_block<
                 maybe_tail_store::<A, IS_TAIL>(
                     sample_start + offset..sample_end + offset,
                     cur_state[i],
-                    state,
+                    state
                 );
             }
         }
@@ -567,7 +533,7 @@ mod tests {
     use crate::api::seed::gen_octave_seed;
     use crate::math::random::Random;
     use crate::simd::StaticArch;
-    use crate::BatchGenerator;
+    use crate::{ BatchGenerator, EuclideanSquared };
     use crate::{ Cellular, Fbm, Grid };
 
     #[test]
@@ -602,14 +568,7 @@ mod tests {
     fn cellular_grid_2d_reference() {
         let seed = 123456789i64;
 
-        for freq in [
-            1.0 / 32.0,
-            1.0 / 8.0,
-            1.0 / 6.0,
-            1.0 / 4.0,
-            1.0 / 3.0,
-            1.0 / 2.0,
-        ] {
+        for freq in [1.0 / 32.0, 1.0 / 8.0, 1.0 / 6.0, 1.0 / 4.0, 1.0 / 3.0, 1.0 / 2.0] {
             check_reference(64, 64, seed, -5.0, 3.0, freq);
         }
 
@@ -617,9 +576,7 @@ mod tests {
     }
 
     fn check_reference(w: usize, h: usize, seed: i64, offset_x: f64, offset_y: f64, freq: f32) {
-        let grid = Grid::<2>::new(w, h)
-            .seed(seed)
-            .sample_position(offset_x, offset_y);
+        let grid = Grid::<2>::new(w, h).seed(seed).sample_position(offset_x, offset_y);
         let grid_seed = Random::mix_u64(seed as u64);
         let base_seed = Random::mix_u64_pair(grid_seed, 0xd5e7b3c94f8a1e6b);
         let octave_seed = gen_octave_seed([freq, freq], base_seed);
@@ -632,8 +589,8 @@ mod tests {
         let mut max_diff = 0.0f32;
         for y in 0..h {
             for x in 0..w {
-                let px = offset_x as f32 + x as f32;
-                let py = offset_y as f32 + y as f32;
+                let px = (offset_x as f32) + (x as f32);
+                let py = (offset_y as f32) + (y as f32);
                 let reference = reference(octave_seed, px, py, freq);
                 let actual = result[y * w + x];
                 max_diff = max_diff.max((actual - reference).abs());
@@ -654,4 +611,3 @@ mod tests {
         gain.to_array()[0]
     }
 }
-

@@ -6,8 +6,8 @@ use crate::api::octave::Octave;
 use crate::api::parameters::*;
 use crate::math::random::Random;
 use crate::simd::register::iters::IntoSimdIterator;
-use crate::simd::{Arch, StaticArch};
-use crate::{Combiner, GridGenerator, HybridMulti, PingPong, Ridged, Terrace};
+use crate::simd::{ Arch, StaticArch };
+use crate::{ Combiner, GridGenerator, HybridMulti, PingPong, Ridged, Terrace };
 
 /// A struct for creating noise on a uniform grid with custom octaves.
 /// The most performant way to generate noise.
@@ -17,12 +17,12 @@ pub struct OctaveGridNoiseBuilder<
     const D: usize,
     C: Combiner,
     G: GridGenerator<D>,
-    A: Arch = StaticArch,
+    A: Arch = StaticArch
 > {
     grid_config: GridConfig<D>,
     noise_config: NoiseConfig<D>,
     combiner_config: C::Config,
-    generator_config: G::GenConfig,
+    gen_cfg: G::GenConfig,
     octave_list: &'a [Octave<D>],
     _noise_type: PhantomData<G>,
     _arch: PhantomData<A>,
@@ -37,9 +37,13 @@ params_hybrid_multi_builder!(OctaveGridNoiseBuilder, ['a, const D: usize, G: Gri
 params_noise_scaling_2d!(OctaveGridNoiseBuilder, ['a, C: Combiner, G: GridGenerator<2>, A: Arch], ['a, 2, C, G, A]);
 params_noise_scaling_3d!(OctaveGridNoiseBuilder, ['a, C: Combiner, G: GridGenerator<3>, A: Arch], ['a, 3, C, G, A]);
 
-impl<'a, const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch>
-    OctaveGridNoiseBuilder<'a, D, C, G, A>
-{
+impl<'a, const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch> OctaveGridNoiseBuilder<
+    'a,
+    D,
+    C,
+    G,
+    A
+> {
     pub(crate) fn new(grid_config: GridConfig<D>, octave_list: &'a [Octave<D>]) -> Self {
         Self {
             grid_config,
@@ -55,9 +59,9 @@ impl<'a, const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch>
             &self.grid_config,
             &self.noise_config,
             &self.combiner_config,
-            &self.generator_config,
+            &self.gen_cfg,
             self.octave_list,
-            result.as_mut_slice(),
+            result.as_mut_slice()
         );
         result
     });
@@ -67,9 +71,9 @@ impl<'a, const D: usize, C: Combiner, G: GridGenerator<D>, A: Arch>
             &self.grid_config,
             &self.noise_config,
             &self.combiner_config,
-            &self.generator_config,
+            &self.gen_cfg,
             self.octave_list,
-            result,
+            result
         );
     });
 

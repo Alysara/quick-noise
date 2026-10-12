@@ -30,5 +30,5 @@ pub use noise::combiners::{
     PingPong, PingPongConfig, Ridged, RidgedConfig, Terrace, TerraceConfig,
 };
 pub use noise::generators::{Cellular, Perlin, Simplex, Value};
-pub use noise::generators::{Euclidean, EuclideanSquared, Hybrid, Manhattan, MaxAxis, Minwoski};
+pub use noise::generators::{Euclidean, EuclideanSquared, Hybrid, Manhattan, MaxAxis, Minowski};
 // pub use noise::*;
