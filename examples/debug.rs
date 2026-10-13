@@ -3,36 +3,41 @@ use quick_noise::{
     BatchNoise, Billow, Combiner, Fbm, Grid, Octave, Perlin, PingPong, PingPongConfig, Ridged,
     Value,
 };
+#[cfg(feature = "image")]
+use simply_simd::dispatch_simd;
 use simply_simd::{ScalarArch, Simd, StaticArch};
 #[cfg(feature = "image")]
+#[dispatch_simd(A)]
 fn main() {
     use quick_noise::{Cellular, Euclidean, EuclideanSquared, Simplex};
 
-    let debug_grid = Grid::<2>::new(1024, 1024).seed(0);
-    let debug_grid_3d = Grid::<3>::new(64, 64, 64).seed(0);
+    let debug_grid = Grid::<2, A>::new(1024, 1024).seed(0);
+    let debug_grid_3d = Grid::<3, A>::new(64, 64, 64).seed(0);
 
-    debug_grid
-        .builder::<Ridged, Perlin>()
-        .octaves(6)
-        .frequency(1.0 / 64.0)
-        .seed(0)
-        .into_iter()
-        .to_grayscale_image(1024, 1024, "noise_images/perlin_debug_2d.png");
+    // debug_grid
+    //     .builder::<Ridged, Perlin>()
+    //     .octaves(6)
+    //     .frequency(1.0 / 64.0)
+    //     .gain(1.0 / 0.3)
+    //     .seed(0)
+    //     .into_iter()
+    //     .to_grayscale_image(1024, 1024, "noise_images/perlin_debug_2d.png");
 
     debug_grid_3d
         .builder::<Ridged, Perlin>()
         .octaves(6)
         .frequency(1.0 / 32.0)
+        .gain(1.0 / 0.3)
         .seed(0)
         .into_iter()
         .to_grayscale_image(64, 4096, "noise_images/perlin_debug_3d.png");
 
-    BatchNoise::<2, Ridged, Cellular<EuclideanSquared>>::builder(debug_grid.x_iter(), debug_grid.y_iter())
-        .octaves(6)
-        .frequency(1.0 / 64.0)
-        .seed_with_grid(0, 0)
-        .into_iter()
-        .to_grayscale_image(1024, 1024, "noise_images/perlin_debug_2d_truth.png");
+    // BatchNoise::<2, Ridged, Cellular<EuclideanSquared>>::builder(debug_grid.x_iter(), debug_grid.y_iter())
+    //     .octaves(6)
+    //     .frequency(1.0 / 64.0)
+    //     .seed_with_grid(0, 0)
+    //     .into_iter()
+    //     .to_grayscale_image(1024, 1024, "noise_images/perlin_debug_2d_truth.png");
 
     // let mut result = vec![0.0; 243 * 243];
     // BatchNoise::<2, Fbm, Perlin>::builder(debug_grid.x_iter(), debug_grid.y_iter())

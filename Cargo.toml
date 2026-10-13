@@ -27,7 +27,7 @@ debug = "line-tables-only"
 strip = false
 
 [dependencies]
-simply-simd = { version = "0.2.0" }
+simply-simd = { git = "https://github.com/Alysara/simply-simd.git", version = "0.2.0", rev = "f66efddc55cd88d1b571674059700d632d1b3a0e" }
 image = { version = "0.25.9", default-features = false, features = ["png"], optional = true }
 serde = { version = "1", features = ["derive"], optional = true }
 serde_arrays = { version = "0.2", optional = true }

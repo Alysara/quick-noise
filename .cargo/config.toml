@@ -1,5 +1,5 @@
 [build]
 # rustflags = "-C target-cpu="
-rustflags = "-C target-cpu=native"
+# rustflags = "-C target-cpu=native"
 # rustflags = "-C target-feature=+sse4.2"
 # rustflags = "-C target-feature=+avx2,+fma"
