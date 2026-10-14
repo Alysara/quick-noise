@@ -16,7 +16,7 @@ use crate::noise::util::grid_helpers::{
     pad_grid_size,
     validate_grid_size,
     validate_state_size,
-    simd_rem_euclid_i32,
+    rem_euclid_v,
 };
 use crate::{ Cellular, GridGenerator };
 
@@ -27,47 +27,33 @@ use crate::{ Cellular, GridGenerator };
 /// (-1,1) (0,1) (1,1) (2,1)
 ///        (0,2) (1,2)
 const NEIGHBORS_12: [(i32, i32); 12] = [
-    (0, 0),
-    (1, 0),
-    (0, 1),
-    (1, 1),
-    (-1, 0),
-    (-1, 1),
-    (0, -1),
-    (1, -1),
-    (2, 0),
-    (2, 1),
-    (0, 2),
-    (1, 2),
+    ( 0,  0),
+    ( 1,  0),
+    ( 0,  1),
+    ( 1,  1),
+
+    (-1,  0),
+    (-1,  1),
+    ( 0, -1),
+    ( 1, -1),
+    
+    ( 2,  0),
+    ( 2,  1),
+    ( 0,  2),
+    ( 1,  2),
 ];
 
-struct RowWindow {
-    fir: *mut f32,
-    sec: *mut f32,
-    thi: *mut f32,
-    fou: *mut f32,
+/// 2D Plane Window
+struct Window {
+    rows: [*mut f32; 4],
     width: usize,
 }
 
-impl RowWindow {
+impl Window {
     fn new(arena: &mut Arena, width: usize) -> Self {
+        let len = width * 2;
         Self {
-            fir: arena
-                .allocate::<f32>(width * 2)
-                .as_mut_ptr()
-                .cast(),
-            sec: arena
-                .allocate::<f32>(width * 2)
-                .as_mut_ptr()
-                .cast(),
-            thi: arena
-                .allocate::<f32>(width * 2)
-                .as_mut_ptr()
-                .cast(),
-            fou: arena
-                .allocate::<f32>(width * 2)
-                .as_mut_ptr()
-                .cast(),
+            rows: std::array::from_fn(|_| { arena.allocate::<f32>(len).as_mut_ptr().cast() }),
             width,
         }
     }
@@ -77,25 +63,28 @@ impl RowWindow {
         params: &GridNoiseParams<2>,
         grid_data: &CellularGridData<2>,
         buff: &mut [(f32, f32)],
-        ly: i32,
-        lx_start: i32
+        lx_start: i32,
+        ly: i32
     ) {
         let ly = grid_data.octave_tiling[1].map_or(ly, |t| ly.rem_euclid(t as i32));
-        let y_shuf = hash_cell_y::<A>(ly as u32, params.seed);
-        let y_shuf_v = Simd::<u32, A>::splat(y_shuf);
+        let y_shuf = hash_axis::<A>(ly as u32, params.seed); // Scalar
+        let y_shuf_v = Simd::<u32, A>::splat(y_shuf); // Vector
         let lanes = Simd::<f32, A>::LANES;
 
         let mut x_it = 0;
         while x_it + lanes <= buff.len() {
-            let lx_base = lx_start.wrapping_add(x_it as i32);
-            let lx_v = Simd::<i32, A>::splat(lx_base) + Simd::<i32, A>::iota(0);
-            let lx_v = if let Some(t) = grid_data.octave_tiling[0] {
-                simd_rem_euclid_i32::<A>(lx_v, t as i32)
+            let lx = lx_start.wrapping_add(x_it as i32); // Scalar
+            let lx_v = Simd::<i32, A>::splat(lx) + Simd::<i32, A>::iota(0); // Vector
+            let lx_t = if let Some(t) = grid_data.octave_tiling[0] {
+                // Tiling
+                rem_euclid_v::<A>(lx_v, t as i32)
             } else {
                 lx_v
             };
-            let hashes = hash_cells_row::<A>(lx_v.raw_cast(), y_shuf_v, params.seed);
-            let (tx, ty) = split_hash_batch::<A>(hashes);
+            // Tiled hashes (if octave tiling was set)
+            let hashes = hash_row::<A>(lx_t.raw_cast(), y_shuf_v, params.seed);
+            // Tiled jitter offsets
+            let (tx, ty) = split_hash_v::<A>(hashes);
             let tx_arr = tx.to_array();
             let ty_arr = ty.to_array();
             for i in 0..lanes {
@@ -106,56 +95,39 @@ impl RowWindow {
         for i in x_it..buff.len() {
             let lx = lx_start.wrapping_add(i as i32);
             let lx = grid_data.octave_tiling[0].map_or(lx, |t| lx.rem_euclid(t as i32));
-            buff[i] = split_hash(hash_cell_with_y::<A>(lx as u32, y_shuf, params.seed));
+            buff[i] = split_hash(hash_cell_with::<A>(lx as u32, y_shuf, params.seed));
         }
     }
 
-    fn fir(&self) -> &[(f32, f32)] {
-        unsafe { std::slice::from_raw_parts(self.fir.cast::<(f32, f32)>(), self.width) }
+    fn row(&self, index: usize) -> &[(f32, f32)] {
+        unsafe { std::slice::from_raw_parts(self.rows[index].cast(), self.width) }
     }
 
-    fn sec(&self) -> &[(f32, f32)] {
-        unsafe { std::slice::from_raw_parts(self.sec.cast::<(f32, f32)>(), self.width) }
+    fn row_mut(&mut self, index: usize) -> &mut [(f32, f32)] {
+        unsafe { std::slice::from_raw_parts_mut(self.rows[index].cast(), self.width) }
     }
 
-    fn thi(&self) -> &[(f32, f32)] {
-        unsafe { std::slice::from_raw_parts(self.thi.cast::<(f32, f32)>(), self.width) }
-    }
-
-    fn fou(&self) -> &[(f32, f32)] {
-        unsafe { std::slice::from_raw_parts(self.fou.cast::<(f32, f32)>(), self.width) }
-    }
-
-    fn top_mut(&mut self) -> &mut [(f32, f32)] {
-        unsafe { std::slice::from_raw_parts_mut(self.fir.cast::<(f32, f32)>(), self.width) }
-    }
-
-    fn sec_mut(&mut self) -> &mut [(f32, f32)] {
-        unsafe { std::slice::from_raw_parts_mut(self.sec.cast::<(f32, f32)>(), self.width) }
-    }
-
-    fn thi_mut(&mut self) -> &mut [(f32, f32)] {
-        unsafe { std::slice::from_raw_parts_mut(self.thi.cast::<(f32, f32)>(), self.width) }
-    }
-
-    fn bot_mut(&mut self) -> &mut [(f32, f32)] {
-        unsafe { std::slice::from_raw_parts_mut(self.fou.cast::<(f32, f32)>(), self.width) }
+    fn rows(&self) -> [&[(f32, f32)]; 4] {
+        [self.row(0), self.row(1), self.row(2), self.row(3)]
     }
 
     #[inline(always)]
     fn swap(&mut self) {
-        let tmp = self.fir;
-        self.fir = self.sec;
-        self.sec = self.thi;
-        self.thi = self.fou;
-        self.fou = tmp;
+        self.rows.rotate_left(1);
     }
+}
+
+#[inline(always)]
+fn hash_axis<A: Arch>(a: u32, seed: u32) -> u32 {
+    let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
+    let prime = Simd::<u32, A>::splat(HASH_PRIME);
+    (Simd::<u32, A>::splat(a.wrapping_mul(seed)).permute_8(shuffle_indices) ^ prime).to_array()[0]
 }
 
 /// Hashes `LANES` consecutive lattice columns from a pre-built `lx_v` vector
 /// at fixed y in one shot
 #[inline(always)]
-fn hash_cells_row<A: Arch>(lx_v: Simd<u32, A>, y_shuf: Simd<u32, A>, seed: u32) -> Simd<u32, A> {
+fn hash_row<A: Arch>(lx_v: Simd<u32, A>, y_shuf: Simd<u32, A>, seed: u32) -> Simd<u32, A> {
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
     let prime = Simd::<u32, A>::splat(HASH_PRIME);
     let seed_v = Simd::<u32, A>::splat(seed);
@@ -165,27 +137,20 @@ fn hash_cells_row<A: Arch>(lx_v: Simd<u32, A>, y_shuf: Simd<u32, A>, seed: u32) 
 }
 
 #[inline(always)]
-fn hash_cell_y<A: Arch>(y: u32, seed: u32) -> u32 {
-    let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
-    let prime = Simd::<u32, A>::splat(HASH_PRIME);
-    (Simd::<u32, A>::splat(y.wrapping_mul(seed)).permute_8(shuffle_indices) ^ prime).to_array()[0]
-}
-
-#[inline(always)]
-fn hash_cell_with_y<A: Arch>(x: u32, y_shuf: u32, seed: u32) -> u32 {
+fn hash_cell_with<A: Arch>(x: u32, shuf: u32, seed: u32) -> u32 {
     let shuffle_indices = unsafe { Simd::<u8, A>::from_slice_unchecked(&BYTE_SHUFFLE[..]) };
     let prime = Simd::<u32, A>::splat(HASH_PRIME);
     let x_shuf = (
         Simd::<u32, A>::splat(x.wrapping_mul(seed)).permute_8(shuffle_indices) ^ prime
     ).to_array()[0];
-    x_shuf.wrapping_mul(y_shuf) ^ x_shuf
+    x_shuf.wrapping_mul(shuf) ^ x_shuf
 }
 
 /// Split a hash into the per-axis jitter offsets. The lower 23 bits
 /// become the x-mantissa and the next 23 bits become the y-mantissa, giving
 /// unform values in the range `[1, 2)`
 #[inline(always)]
-pub(super) fn split_hash(hash: u32) -> (f32, f32) {
+fn split_hash(hash: u32) -> (f32, f32) {
     let exp_bits = CELLULAR_EXP_MASK;
     let hash_mask = HASH_MASK;
     let tx = 1.5 - f32::from_bits((hash & hash_mask) | exp_bits);
@@ -194,7 +159,7 @@ pub(super) fn split_hash(hash: u32) -> (f32, f32) {
 }
 
 #[inline(always)]
-fn split_hash_batch<A: Arch>(hash: Simd<u32, A>) -> (Simd<f32, A>, Simd<f32, A>) {
+fn split_hash_v<A: Arch>(hash: Simd<u32, A>) -> (Simd<f32, A>, Simd<f32, A>) {
     let exp_bits = Simd::<u32, A>::splat(0x3f800000);
     let hash_mask = Simd::<u32, A>::splat(0x007fffff);
     let one_halves = Simd::<f32, A>::splat(1.5);
@@ -218,22 +183,10 @@ impl CellJitters {
     }
 
     #[inline(always)]
-    fn write<A: Arch>(
-        &mut self,
-        fir: &[(f32, f32)],
-        sec: &[(f32, f32)],
-        thi: &[(f32, f32)],
-        fou: &[(f32, f32)],
-        x_it: usize
-    ) {
+    fn write(&mut self, rows: [&[(f32, f32)]; 4], x_it: usize) {
         for (i, &(ox, oy)) in NEIGHBORS_12.iter().enumerate() {
-            let row: &[(f32, f32)] = match oy {
-                -1 => fir,
-                0 => sec,
-                1 => thi,
-                2 => fou,
-                _ => unreachable!(),
-            };
+            // The oy is + 1 away from the indicies. - 1 becomes 0 and everything that follows becomes a usable index
+            let row = rows[(oy + 1) as usize];
             let (jx, jy) = row[x_it + ((ox + 1) as usize)];
             unsafe {
                 self.parts.add(i * 2).write(MaybeUninit::new(jx + (ox as f32)));
@@ -266,39 +219,20 @@ impl<F: DistanceFn> GridGenerator<2> for Cellular<F> {
         let grid_data = CellularGridData::new::<A>(&params, &mut sub_arena, &padded_size);
 
         let row_len = grid_data.num_loops[0] + 3;
-        let mut window = RowWindow::new(&mut arena, row_len);
+        let mut window = Window::new(&mut arena, row_len);
         let mut cell_jitters = CellJitters::new(&mut arena);
 
         // Pre-fill the 4 rows: fir (y-1), sec (y=0), thi (y=1), fou (y=2)
         let lx_offset = grid_data.grid_start[0] - 1;
-        RowWindow::fill_row::<A>(
-            &params,
-            &grid_data,
-            window.top_mut(),
-            grid_data.grid_start[1] - 1,
-            lx_offset
-        );
-        RowWindow::fill_row::<A>(
-            &params,
-            &grid_data,
-            window.sec_mut(),
-            grid_data.grid_start[1],
-            lx_offset
-        );
-        RowWindow::fill_row::<A>(
-            &params,
-            &grid_data,
-            window.thi_mut(),
-            grid_data.grid_start[1] + 1,
-            lx_offset
-        );
-        RowWindow::fill_row::<A>(
-            &params,
-            &grid_data,
-            window.bot_mut(),
-            grid_data.grid_start[1] + 2,
-            lx_offset
-        );
+        for (i, offset) in [-1, 0, 1, 2].iter().enumerate() {
+            Window::fill_row::<A>(
+                &params,
+                &grid_data,
+                window.row_mut(i),
+                lx_offset,
+                grid_data.grid_start[1] + offset,
+            );
+        }
 
         let mut y_idx = 0;
         for y_it in 0..grid_data.num_loops[1] {
@@ -312,13 +246,7 @@ impl<F: DistanceFn> GridGenerator<2> for Cellular<F> {
                     grid_data.grid_indices[0].get_unchecked(x_it).assume_init() as usize
                 };
 
-                cell_jitters.write::<A>(
-                    window.fir(),
-                    window.sec(),
-                    window.thi(),
-                    window.fou(),
-                    x_it
-                );
+                cell_jitters.write(window.rows(), x_it);
 
                 fill_cell::<A, C, F, INIT, FINAL>(
                     &grid_data,
@@ -339,13 +267,13 @@ impl<F: DistanceFn> GridGenerator<2> for Cellular<F> {
             // Swap rows: sec->fir, thi->sec, fou->thi, old fir->fou
             window.swap();
 
-            // Fill the new fou row
-            RowWindow::fill_row::<A>(
+            // Fill the new last row
+            Window::fill_row::<A>(
                 &params,
                 &grid_data,
-                window.bot_mut(),
+                window.row_mut(3),
+                lx_offset,
                 grid_data.grid_start[1] + (y_it as i32) + 3,
-                lx_offset
             );
 
             y_idx = y_next_idx;
@@ -376,6 +304,7 @@ fn fill_cell<A: Arch, C: Combiner, F: DistanceFn, const INIT: bool, const FINAL:
         let row_start = y * row_width;
 
         let dy_mod: [MaybeUninit<Simd<f32, A>>; 12] = std::array::from_fn(|c| {
+            // Stride 2, y is component 1
             let jy = unsafe { (*jit.parts.add(c * 2 + 1)).assume_init() };
             let dy = Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy);
             MaybeUninit::new(F::modify_delta::<A>(dy, &dst_cfg))
@@ -448,6 +377,7 @@ fn fill_row_block<
 
     let mut min = Simd::<f32, A>::splat(f32::MAX);
     for c in 0..4 {
+        // Stride 2, x is component 0
         let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
         let dy = unsafe { *dy_mod[c].assume_init_ref() };
         let dx = F::modify_delta(sx - jx, &dst_cfg);
@@ -473,6 +403,8 @@ fn fill_row_block<
     let any_far = min.simd_gt(far_sq).to_bits() != 0;
 
     if any_near {
+        // all low-edge candidates:
+        // x/y/z offsets containing -1
         for c in 4..8 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
             let dy = unsafe { *dy_mod[c].assume_init_ref() };
@@ -483,6 +415,8 @@ fn fill_row_block<
     }
 
     if any_far {
+        // all high-edge candidates:
+        // x/y/z offsets containing 2
         for c in 8..12 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
             let dy = unsafe { *dy_mod[c].assume_init_ref() };

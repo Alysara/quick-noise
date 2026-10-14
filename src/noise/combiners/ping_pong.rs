@@ -17,7 +17,7 @@ impl Default for PingPongConfig {
 }
 
 impl CombinerConfig for PingPongConfig {
-    fn populate_fields(&mut self, octaves: usize, amplitude: f32) {}
+    fn populate_fields(&mut self, _octaves: usize, _amplitude: f32) {}
 }
 
 /// Combines noise by oscillating samples together.
