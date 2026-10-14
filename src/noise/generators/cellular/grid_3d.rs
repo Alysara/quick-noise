@@ -33,30 +33,30 @@ const NEIGHBORS_32: [(i32, i32, i32); 32] = [
     (0, 1, 1),
     (1, 1, 1),
     //
-    (-1, 0, 0),
-    (0, -1, 0),
-    (0, 0, -1),
-    (-1, 0, 1),
-    (0, -1, 1),
-    (0, 0, 2),
-    (-1, 1, 0),
-    (0, 2, 0),
-    (0, 1, -1),
-    (-1, 1, 1),
-    (0, 2, 1),
-    (0, 1, 2),
+    (-1,  0,  0),
+    (-1,  1,  0),
+    (-1,  0,  1),
+    (-1,  1,  1),
+    ( 0, -1,  0),
+    ( 1, -1,  0),
+    ( 0, -1,  1),
+    ( 1, -1,  1),
+    ( 0,  0, -1),
+    ( 1,  0, -1),
+    ( 0,  1, -1),
+    ( 1,  1, -1),
     //
     (2, 0, 0),
-    (1, -1, 0),
-    (1, 0, -1),
     (2, 1, 0),
     (2, 0, 1),
-    (1, -1, 1),
-    (1, 0, 2),
     (2, 1, 1),
+    (0, 2, 0),
     (1, 2, 0),
-    (1, 1, -1),
+    (0, 2, 1),
     (1, 2, 1),
+    (0, 0, 2),
+    (1, 0, 2),
+    (0, 1, 2),
     (1, 1, 2),
 ];
 
@@ -103,14 +103,17 @@ impl Window {
 
             let mut x_it = 0;
             while x_it + lanes <= row.len() {
-                let lx = lx_start.wrapping_add(x_it as i32);
-                let lx_v = Simd::<i32, A>::splat(lx) + Simd::<i32, A>::iota(0);
+                let lx = lx_start.wrapping_add(x_it as i32); // Scalar
+                let lx_v = Simd::<i32, A>::splat(lx) + Simd::<i32, A>::iota(0); // Vector
                 let lx_t = if let Some(t) = grid_data.octave_tiling[0] {
+                    // Tiling
                     rem_euclid_v::<A>(lx_v, t as i32)
                 } else {
                     lx_v
                 };
+                // Tiled hashes (if octave tiling was set)
                 let hashes: Simd<u32, A> = hash_row::<A>(lx_t.raw_cast(), yz_shuf_v, params.seed);
+                // Tiled jitter offsets
                 let (tx, ty, tz) = split_hash_v::<A>(hashes);
                 let tx_arr = tx.to_array();
                 let ty_arr = ty.to_array();
@@ -328,7 +331,7 @@ impl<F: DistanceFn> GridGenerator<3> for Cellular<F> {
             // Swap slabs: sec->fir, thi->sec, fou->thi, old fir->fou
             window.swap();
 
-            // Fill the new fou slabs
+            // Fill the new last slab
             Window::fill_slab::<A>(
                 &params,
                 &grid_data,
@@ -488,7 +491,9 @@ fn fill_row_block<
     let any_near = min.simd_gt(near_sq).to_bits() != 0;
     let any_far = min.simd_gt(far_sq).to_bits() != 0;
 
-    if true {
+    if any_near {
+        // all low-edge candidates:
+        // x/y/z offsets containing -1
         for c in 8..20 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 3)).assume_init() });
             let dx = F::modify_delta(sx - jx, &dst_cfg);
@@ -499,7 +504,9 @@ fn fill_row_block<
         }
     }
 
-    if true {
+    if any_far {
+        // all high-edge candidates:
+        // x/y/z offsets containing 2
         for c in 20..32 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 3)).assume_init() });
             let dx = F::modify_delta(sx - jx, &dst_cfg);
@@ -620,6 +627,7 @@ mod tests {
             .fill(result.as_mut_slice());
 
         let mut max_diff = 0.0f32;
+        let mut max_position = (0, 0, 0);
         for z in 0..h {
             for y in 0..w {
                 for x in 0..l {
@@ -628,12 +636,16 @@ mod tests {
                     let pz = (offset_z as f32) + (z as f32);
                     let reference = reference(octave_seed, px, py, pz, freq);
                     let actual = result[z * w * l + y * l + x];
-                    max_diff = max_diff.max((actual - reference).abs());
+                    let difference = (actual - reference).abs();
+                    if difference > max_diff {
+                        max_diff = difference;
+                        max_position = (x, y, z);
+                    }
                 }
             }
             assert!(
                 max_diff < 1e-4,
-                "Grid cellular at freq {freq} diverges from the batch Cellular by {max_diff}"
+                "Grid cellular at freq {freq} diverges from the Batch Cellular by {max_diff} at {max_position:?}"
             );
         }
     }

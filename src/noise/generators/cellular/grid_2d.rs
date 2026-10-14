@@ -304,6 +304,7 @@ fn fill_cell<A: Arch, C: Combiner, F: DistanceFn, const INIT: bool, const FINAL:
         let row_start = y * row_width;
 
         let dy_mod: [MaybeUninit<Simd<f32, A>>; 12] = std::array::from_fn(|c| {
+            // Stride 2, y is component 1
             let jy = unsafe { (*jit.parts.add(c * 2 + 1)).assume_init() };
             let dy = Simd::<f32, A>::splat(sy) - Simd::<f32, A>::splat(jy);
             MaybeUninit::new(F::modify_delta::<A>(dy, &dst_cfg))
@@ -376,6 +377,7 @@ fn fill_row_block<
 
     let mut min = Simd::<f32, A>::splat(f32::MAX);
     for c in 0..4 {
+        // Stride 2, x is component 0
         let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
         let dy = unsafe { *dy_mod[c].assume_init_ref() };
         let dx = F::modify_delta(sx - jx, &dst_cfg);
@@ -401,6 +403,8 @@ fn fill_row_block<
     let any_far = min.simd_gt(far_sq).to_bits() != 0;
 
     if any_near {
+        // all low-edge candidates:
+        // x/y/z offsets containing -1
         for c in 4..8 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
             let dy = unsafe { *dy_mod[c].assume_init_ref() };
@@ -411,6 +415,8 @@ fn fill_row_block<
     }
 
     if any_far {
+        // all high-edge candidates:
+        // x/y/z offsets containing 2
         for c in 8..12 {
             let jx = Simd::<f32, A>::splat(unsafe { (*jit.parts.add(c * 2)).assume_init() });
             let dy = unsafe { *dy_mod[c].assume_init_ref() };

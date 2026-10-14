@@ -1,5 +1,3 @@
-use std::io::Empty;
-
 use simply_simd::{Arch, Simd};
 
 use crate::{Combiner, CombinerArray, noise::combiners::EmptyConfig};

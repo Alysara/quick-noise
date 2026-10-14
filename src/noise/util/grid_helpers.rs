@@ -1,7 +1,7 @@
 use std::array::from_fn;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
-use std::ops::{Add, Range};
+use std::ops::Range;
 
 use simply_simd::{Arch, Mask, Simd, SimdElement, SimdToArray};
 
