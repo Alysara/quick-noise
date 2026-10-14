@@ -144,18 +144,17 @@ impl DistanceFn for Hybrid {
 
     #[inline(always)]
     fn modify_delta<A: Arch>(delta: Simd<f32, A>, _cfg: &Self::DistanceConfig) -> Simd<f32, A> {
-        delta
+        delta.mul_add(delta, delta.abs())
     }
 
     #[inline(always)]
     fn dist<A: Arch, const D: usize>(
-        deltas: [Simd<f32, A>; D],
+        deltas_h: [Simd<f32, A>; D],
         _cfg: &Self::DistanceConfig
     ) -> Simd<f32, A> {
-        deltas
+        deltas_h
             .iter()
             .copied()
-            .map(|delta| delta.mul_add(delta, delta.abs()))
             .fold(Simd::splat(0.0), |sum, delta| sum + delta)
     }
 
@@ -258,4 +257,5 @@ pub mod cellular {
     pub mod batch_2d;
     pub mod batch_3d;
     pub mod grid_2d;
+    pub mod grid_3d;
 }

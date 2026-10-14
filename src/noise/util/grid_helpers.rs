@@ -1,7 +1,7 @@
 use std::array::from_fn;
 use std::marker::PhantomData;
 use std::mem::MaybeUninit;
-use std::ops::Range;
+use std::ops::{Add, Range};
 
 use simply_simd::{Arch, Mask, Simd, SimdElement, SimdToArray};
 
@@ -348,13 +348,6 @@ pub(crate) fn configure_tiling<const D: usize>(params: &GridNoiseParams<D>) -> [
     })
 }
 
-#[inline(always)]
-pub(crate) fn simd_rem_euclid_i32<A: Arch>(x: Simd<i32, A>, t: i32) -> Simd<i32, A> {
-    let t_f = Simd::<f32, A>::splat(t as f32);
-    let x_f = x.cast_float();
-    (x_f - (x_f / t_f).floor() * t_f).cast_int_trunc()
-}
-
 #[repr(u8)]
 #[derive(Copy, Clone, Debug)]
 pub(crate) enum SimdAccessMode {
@@ -429,4 +422,11 @@ pub(crate) unsafe fn write_simd_rw<A: Arch>(
             }
         };
     }
+}
+
+#[inline(always)]
+pub(crate) fn rem_euclid_v<A: Arch>(a: Simd<i32, A>, b: i32) -> Simd<i32, A> {
+    let a_f = a.cast_float();
+    let b_f = Simd::<f32, A>::splat(b as f32);
+    (a_f - (a_f / b_f).floor() * b_f).cast_int_trunc()
 }
