@@ -92,7 +92,26 @@ fn grid_benchmark(c: &mut Criterion) {
 
         group.bench_function(format!("scale: {scale}"), |b| {
             b.iter(|| {
-                grid.builder::<Fbm, Cellular<Euclidean>>()
+                grid.builder::<Fbm, Cellular>()
+                    .octaves(1)
+                    .frequency(1.0 / scale)
+                    .fill(&mut result);
+            });
+        });
+    }
+    black_box(&result);
+    group.finish();
+
+    let mut group = c.benchmark_group("grid_cellular_3d");
+    group.throughput(Throughput::Elements(32768));
+
+    let mut result = [0.0; 32768];
+    for scale in SCALES {
+        let grid = Grid::<3>::new(32, 32, 32);
+
+        group.bench_function(format!("scale: {scale}"), |b| {
+            b.iter(|| {
+                grid.builder::<Fbm, Cellular>()
                     .octaves(1)
                     .frequency(1.0 / scale)
                     .fill(&mut result);
